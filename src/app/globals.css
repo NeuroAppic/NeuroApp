@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — Acolher
+ * Paleta: creme, verde-sálvia, lavanda e azul acinzentado, pouco saturados.
+ * Todos os pares texto/fundo usados atendem WCAG 2.2 AA (≥ 4.5:1 para texto).
+ * Preferências sensoriais são aplicadas como atributos em <html>:
+ *   data-theme="light|dark", data-low-stimulus, data-reduce-motion, data-reduce-decor
+ *   e a variável --text-scale.
+ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --text-scale: 1;
+
+  --background: #faf7f2;
+  --surface: #ffffff;
+  --surface-muted: #f3eee6;
+  --border: #e2dace;
+  --foreground: #2b2a33;
+  --foreground-muted: #5b5866;
+
+  --primary: #46685a;
+  --primary-hover: #3b5a4d;
+  --primary-foreground: #ffffff;
+  --primary-soft: #dfe9e2;
+
+  --lavender: #6f629c;
+  --lavender-soft: #ece8f5;
+  --sky: #4f6880;
+  --sky-soft: #e4ebf2;
+
+  --danger: #8a3b2e;
+  --danger-soft: #f7e6e1;
+  --focus: #5b4fa0;
+
+  /* Cor de dados dos gráficos (validada: banda de luminosidade, croma e contraste). */
+  --chart-1: #2f8f68;
+
+  --radius: 1rem;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --background: #18171d;
+  --surface: #222129;
+  --surface-muted: #2b2a33;
+  --border: #3b3945;
+  --foreground: #ece9f2;
+  --foreground-muted: #b6b1c2;
+
+  --primary: #9cc4b0;
+  --primary-hover: #b0d2c1;
+  --primary-foreground: #142019;
+  --primary-soft: #26352e;
+
+  --lavender: #c3b8ea;
+  --lavender-soft: #2e2a40;
+  --sky: #afc4d8;
+  --sky-soft: #243039;
+
+  --danger: #f0b3a6;
+  --danger-soft: #3d2622;
+  --focus: #c3b8ea;
+  --chart-1: #46a07a;
+  color-scheme: dark;
+}
+
+/* Baixo estímulo: cores quase neutras, sem sombras e sem movimento. */
+[data-low-stimulus] {
+  --primary-soft: var(--surface-muted);
+  --lavender-soft: var(--surface-muted);
+  --sky-soft: var(--surface-muted);
+  --lavender: var(--foreground-muted);
+  --sky: var(--foreground-muted);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-lavender: var(--lavender);
+  --color-lavender-soft: var(--lavender-soft);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-focus: var(--focus);
+  --color-chart-1: var(--chart-1);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  font-size: calc(100% * var(--text-scale));
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  letter-spacing: 0.005em;
+}
+
+/* Foco sempre visível e consistente (WCAG 2.4.7 / 2.4.11). */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 0.5rem;
+}
+
+::selection {
+  background: var(--lavender-soft);
+  color: var(--foreground);
+}
+
+/* Movimento: respeita a preferência do sistema E a preferência do portal. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-reduce-motion] *,
+[data-reduce-motion] *::before,
+[data-reduce-motion] *::after,
+[data-low-stimulus] *,
+[data-low-stimulus] *::before,
+[data-low-stimulus] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+[data-reduce-decor] [data-decor],
+[data-low-stimulus] [data-decor] {
+  display: none !important;
+}
+[data-low-stimulus] .shadow-soft {
+  box-shadow: none;
+}
+
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px rgb(43 42 51 / 0.04),
+    0 8px 24px -12px rgb(43 42 51 / 0.12);
+}
+
+@keyframes gentle-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility animate-gentle-in {
+  animation: gentle-fade-in 320ms ease-out both;
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@utility animate-soft-pulse {
+  animation: soft-pulse 1.6s ease-in-out infinite;
+}
+
+.sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
