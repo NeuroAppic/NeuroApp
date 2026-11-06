@@ -2,7 +2,7 @@ import "server-only";
 
 import { AnthropicProvider } from "./providers/anthropic";
 import { MockProvider } from "./providers/mock";
-import { OpenAIProvider } from "./providers/openai";
+import { OpenAIProvider, type OpenAIReasoningEffort } from "./providers/openai";
 import { AIProviderError, type ChatProvider } from "./types";
 
 export const AI_DEFAULTS = {
@@ -39,7 +39,10 @@ export function getChatProvider(): ChatProvider {
       if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_MODEL) {
         throw new AIProviderError("OPENAI_API_KEY e OPENAI_MODEL são obrigatórias.", "config");
       }
-      cached = new OpenAIProvider({ model: process.env.OPENAI_MODEL });
+      cached = new OpenAIProvider({
+        model: process.env.OPENAI_MODEL,
+        reasoningEffort: parseOpenAIEffort(process.env.OPENAI_REASONING_EFFORT),
+      });
       break;
     }
     case "mock":
@@ -61,6 +64,12 @@ function parseEffort(raw: string | undefined): "low" | "medium" | "high" | "xhig
   return (allowed as readonly string[]).includes(raw ?? "")
     ? (raw as (typeof allowed)[number])
     : "medium";
+}
+
+/** Sem valor: o parâmetro não é enviado (modelos sem raciocínio o recusam). */
+function parseOpenAIEffort(raw: string | undefined): OpenAIReasoningEffort | undefined {
+  const allowed: OpenAIReasoningEffort[] = ["none", "minimal", "low", "medium", "high"];
+  return allowed.find((v) => v === raw);
 }
 
 export { AIProviderError } from "./types";

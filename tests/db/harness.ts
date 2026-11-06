@@ -29,6 +29,7 @@ create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
   is_anonymous boolean not null default false,
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   last_sign_in_at timestamptz
 );
@@ -122,11 +123,11 @@ export async function as<T>(
 
 export async function createAuthUser(
   db: PGlite,
-  opts: { email?: string; anonymous?: boolean } = {},
+  opts: { email?: string; anonymous?: boolean; metadata?: Record<string, unknown> } = {},
 ): Promise<string> {
   const res = await db.query<{ id: string }>(
-    "insert into auth.users (email, is_anonymous) values ($1, $2) returning id",
-    [opts.email ?? null, opts.anonymous ?? !opts.email],
+    "insert into auth.users (email, is_anonymous, raw_user_meta_data) values ($1, $2, $3) returning id",
+    [opts.email ?? null, opts.anonymous ?? !opts.email, JSON.stringify(opts.metadata ?? {})],
   );
   return res.rows[0]!.id;
 }

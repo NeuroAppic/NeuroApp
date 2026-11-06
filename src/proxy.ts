@@ -34,9 +34,12 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isDashboard = pathname.startsWith("/dashboard");
-  const isLogin = pathname === "/dashboard/entrar" || pathname.startsWith("/dashboard/entrar/");
+  // Páginas do painel abertas sem login: entrar e autocadastro de profissional.
+  const isPublic = ["/dashboard/entrar", "/dashboard/cadastro"].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 
-  if (isDashboard && !isLogin && (!user || user.is_anonymous)) {
+  if (isDashboard && !isPublic && (!user || user.is_anonymous)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard/entrar";
     url.search = "";

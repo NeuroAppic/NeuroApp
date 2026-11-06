@@ -192,7 +192,8 @@ export async function generateAIReply(args: GenerateArgs): Promise<void> {
     emit({
       type: "ai_unavailable",
       fallbackText: fallbackSafetyReply(args.riskLevel),
-      retryable: kind !== "config",
+      // Sem créditos ou configuração inválida: tentar de novo não resolve.
+      retryable: kind !== "config" && kind !== "quota",
     });
   }
 }

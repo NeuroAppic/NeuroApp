@@ -36,7 +36,7 @@ export interface ChatProvider {
 export class AIProviderError extends Error {
   constructor(
     message: string,
-    readonly kind: "timeout" | "rate_limited" | "unavailable" | "refused" | "config",
+    readonly kind: "timeout" | "rate_limited" | "quota" | "unavailable" | "refused" | "config",
     readonly cause?: unknown,
   ) {
     super(message);

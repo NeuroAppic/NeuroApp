@@ -16,6 +16,8 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "jsdom",
+          // A primeira importação das rotas (Next + SDKs) é lenta em pastas sincronizadas.
+          testTimeout: 15_000,
           setupFiles: ["./tests/setup.ts"],
           include: ["src/**/*.test.{ts,tsx}", "tests/unit/**/*.test.{ts,tsx}"],
         },

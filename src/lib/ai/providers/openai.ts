@@ -3,9 +3,15 @@ import "server-only";
 import OpenAI from "openai";
 import { AIProviderError, type ChatProvider, type ChatRequest, type StreamEvent } from "../types";
 
+export type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
+
 export interface OpenAIProviderOptions {
   apiKey?: string;
   model: string;
+  /** Só para modelos de raciocínio (ex.: gpt-5.x). Omitido quando não configurado. */
+  reasoningEffort?: OpenAIReasoningEffort;
+  /** Permite injetar um fetch simulado nos testes. */
+  fetch?: typeof fetch;
 }
 
 /** Adaptador OpenAI (SDK oficial `openai`), Chat Completions com streaming. */
@@ -14,10 +20,12 @@ export class OpenAIProvider implements ChatProvider {
   readonly isSimulated = false;
   readonly model: string;
   private readonly client: OpenAI;
+  private readonly reasoningEffort?: OpenAIReasoningEffort;
 
   constructor(options: OpenAIProviderOptions) {
     this.model = options.model;
-    this.client = new OpenAI({ apiKey: options.apiKey, maxRetries: 1 });
+    this.reasoningEffort = options.reasoningEffort;
+    this.client = new OpenAI({ apiKey: options.apiKey, maxRetries: 1, fetch: options.fetch });
   }
 
   async *stream(request: ChatRequest): AsyncIterable<StreamEvent> {
@@ -28,6 +36,9 @@ export class OpenAIProvider implements ChatProvider {
           stream: true,
           stream_options: { include_usage: true },
           max_completion_tokens: request.maxOutputTokens,
+          // Conversas de acolhimento não devem ficar guardadas no provedor.
+          store: false,
+          ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
           messages: [
             { role: "system", content: request.system },
             ...request.turns.map((t) => ({ role: t.role, content: t.content })),
@@ -62,16 +73,24 @@ export class OpenAIProvider implements ChatProvider {
   }
 }
 
-function normalizeOpenAIError(error: unknown, signal: AbortSignal): unknown {
+export function normalizeOpenAIError(error: unknown, signal: AbortSignal): unknown {
   if (error instanceof AIProviderError) return error;
   if (signal.aborted || error instanceof OpenAI.APIUserAbortError) {
     return new AIProviderError("Geração cancelada ou expirada.", "timeout", error);
   }
   if (error instanceof OpenAI.RateLimitError) {
+    // A OpenAI usa 429 tanto para excesso de uso quanto para falta de créditos.
+    const code = (error as { code?: string | null }).code;
+    if (code === "insufficient_quota" || code === "credit_balance_exhausted" || error.type === "insufficient_quota") {
+      return new AIProviderError("Conta do provedor sem créditos.", "quota", error);
+    }
     return new AIProviderError("Limite do provedor atingido.", "rate_limited", error);
   }
   if (error instanceof OpenAI.AuthenticationError || error instanceof OpenAI.PermissionDeniedError) {
     return new AIProviderError("Credencial do provedor inválida.", "config", error);
+  }
+  if (error instanceof OpenAI.NotFoundError) {
+    return new AIProviderError("Modelo não encontrado para esta conta.", "config", error);
   }
   if (error instanceof OpenAI.APIConnectionTimeoutError) {
     return new AIProviderError("Tempo esgotado no provedor.", "timeout", error);

@@ -53,9 +53,10 @@ Veja [.env.example](.env.example). `SUPABASE_SECRET_KEY` e chaves de IA ficam **
 - Na nuvem: `npx supabase link --project-ref <ref>` e `npx supabase db push`; execute `supabase/seed.sql`.
 - Habilite **login anônimo** (Authentication → Sign In / Providers → "Allow anonymous sign-ins", e salve)
   e **MFA TOTP**. Localmente já vêm ativos em `supabase/config.toml`.
-- Modelos de e-mail (convite, recuperação, confirmação) devem apontar para
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<invite|recovery|email>&next=/dashboard`.
-- Adicione `<site>/auth/confirm` às Redirect URLs.
+- Em **Authentication → URL Configuration**: **Site URL** = endereço do app; em **Redirect URLs**
+  adicione `http://localhost:3000/**` (desenvolvimento) e `https://<seu-endereco>/**` (produção).
+  Os links de e-mail chegam em `/auth/confirm` (cadastro e nova senha) e `/auth/callback` (convites).
+  Os modelos de e-mail padrão do Supabase funcionam sem alteração.
 - Retenção diária (opcional, pg_cron): `supabase/optional/schedule_retention.sql`.
 - Tipos gerados: `npm run db:types`.
 
@@ -65,14 +66,32 @@ Veja [.env.example](.env.example). `SUPABASE_SECRET_KEY` e chaves de IA ficam **
 node --env-file=.env.local scripts/create-superadmin.mjs admin@exemplo.org "Nome Completo" "Nome"
 ```
 
-Só funciona enquanto não existir superadministrador. Depois, convide a equipe em `/dashboard/equipe`.
-Psicólogos só atendem após **outro** administrador validar o registro profissional.
+Se o e-mail ainda não tem conta, o script pede uma senha (não aparece na tela) e cria a conta já
+confirmada. Se a conta já existe, ela é promovida. Só funciona enquanto não existir superadministrador.
+
+### Como os psicólogos entram
+
+1. O(a) psicólogo(a) se cadastra em **`/dashboard/cadastro`** (link "Cadastre-se" em `/dashboard/entrar`)
+   com nome, nome exibido, CRP, e-mail e senha, e confirma o e-mail.
+2. A conta nasce como **psicólogo com credencial pendente**: entra no painel, mas não vê nem assume
+   conversas. O cadastro nunca concede papel administrativo.
+3. Um administrador confere o CRP e clica em **Validar credencial** em `/dashboard/equipe`.
+   Ninguém valida a própria credencial: o administrador e o psicólogo precisam ser contas diferentes.
+4. Validado, o(a) psicólogo(a) escolhe **Disponível para atender** no menu e usa
+   **Atendimentos**: fila em tempo real → **Assumir atendimento** → conversa → **Finalizar** ou
+   **Devolver para a IA**. A aba do navegador mostra quantas pessoas aguardam.
+
+Administradores também podem convidar profissionais por e-mail em `/dashboard/equipe`.
 
 ## IA
 
-`AI_PROVIDER=anthropic` (padrão do modelo: `claude-opus-5-5`, com fallback de recusa no servidor) ou
-`openai` (exige `OPENAI_MODEL`). `mock` é um simulador sem IA, identificado na interface. Prompt de
-sistema versionado em `src/lib/ai/prompts/system-prompt.ts`. Limites de uso configuráveis no painel.
+`AI_PROVIDER=openai` (exige `OPENAI_API_KEY` e `OPENAI_MODEL`, ex.: `gpt-5.5`;
+`OPENAI_REASONING_EFFORT=low` deixa as respostas mais rápidas) ou `anthropic` (padrão do modelo:
+`claude-opus-5-5`, com fallback de recusa no servidor). `mock` é um simulador sem IA, identificado
+na interface. A API da OpenAI é cobrada à parte do ChatGPT: sem créditos em
+platform.openai.com/settings/organization/billing, o chat mostra "O assistente não conseguiu
+responder agora" (a mensagem da pessoa fica salva). Prompt de sistema versionado em
+`src/lib/ai/prompts/system-prompt.ts`. Limites de uso configuráveis no painel.
 
 ## Comandos
 
@@ -91,8 +110,32 @@ Antes de `test:e2e`, rode `npm run build` e `npx playwright install chromium`.
 
 ## Implantação
 
-Qualquer host Node com suporte a Next.js 16 (ex.: Vercel). Configure as variáveis, `NEXT_PUBLIC_SITE_URL`,
-URLs de redirecionamento no Supabase e agende a retenção. Ative `STAFF_REQUIRE_MFA=true` em produção.
+Qualquer host Node com suporte a Next.js 16. Passo a passo para a Vercel:
+
+1. Em [vercel.com/new](https://vercel.com/new), entre com o GitHub e importe o repositório
+   `NeuroAppic/NeuroApp`. A Vercel detecta Next.js sozinha (não altere build nem pasta).
+2. Antes de clicar em **Deploy**, abra **Environment Variables** e cadastre:
+
+   | Variável | Valor |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | chave publicável (`sb_publishable_...`) |
+   | `SUPABASE_SECRET_KEY` | chave secreta (`sb_secret_...`) — nunca com prefixo `NEXT_PUBLIC_` |
+   | `AI_PROVIDER` | `mock`, `openai` ou `anthropic` |
+   | `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_REASONING_EFFORT` | só se `AI_PROVIDER=openai` (ex.: `gpt-5.5`, `low`) |
+   | `ANTHROPIC_API_KEY` | só se `AI_PROVIDER=anthropic` |
+   | `STAFF_REQUIRE_MFA` | `true` em produção |
+
+3. Depois do primeiro deploy, copie o endereço (ex.: `https://neuro-app.vercel.app`), crie
+   `NEXT_PUBLIC_SITE_URL` com ele e faça **Redeploy** (variáveis `NEXT_PUBLIC_*` entram no build).
+4. No Supabase, em **Authentication → URL Configuration**, defina **Site URL** com esse endereço e
+   adicione `https://<seu-endereco>/**` em **Redirect URLs**.
+5. A cada `git push` na branch `main`, a Vercel publica a nova versão automaticamente.
+
+Observações: o plano gratuito (Hobby) da Vercel é para uso pessoal e não comercial. A região padrão
+(`iad1`, EUA-Leste) fica perto do projeto Supabase (`us-east-1`). Agende também a retenção
+(`supabase/optional/schedule_retention.sql`) e considere ativar CAPTCHA no login anônimo do Supabase
+para evitar abuso.
 
 ## Cuidados de segurança
 

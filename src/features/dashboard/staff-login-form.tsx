@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/field";
+import { passwordSetupPath } from "@/lib/safe-redirect";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { staffLoginSchema } from "@/lib/validation/schemas";
 
@@ -44,7 +45,7 @@ export function StaffLoginForm() {
       return;
     }
     await getBrowserSupabase().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+      redirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(passwordSetupPath("/dashboard"))}`,
     });
     // Mensagem neutra: não revela se o e-mail existe.
     setResetSent(true);

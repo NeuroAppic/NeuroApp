@@ -1,6 +1,6 @@
 # Plano de implementação — Acolher
 
-Atualizado em 29/10/2026.
+Atualizado em 06/11/2026.
 
 ## Estado das fases
 
@@ -8,8 +8,8 @@ Atualizado em 29/10/2026.
 |---|---|
 | 1. Fundação (arquitetura, design system, Supabase, migrações, auth) | Implementada |
 | 2. Portal público (início, navegação, configurações sensoriais, chat) | Implementada |
-| 3. IA funcional (provedores, prompt, mensagens rápidas, segurança, indisponibilidade) | Implementada; fluxo testado com o provedor simulado; **provedores reais não testados (sem chave)** |
-| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência) | Implementada; Realtime e transferência **verificados contra o Supabase real**; telas do painel não exercitadas com equipe real |
+| 3. IA funcional (provedores, prompt, mensagens rápidas, segurança, indisponibilidade) | Implementada; adaptador OpenAI testado com a API simulada; **chave OpenAI válida, mas a conta está sem créditos — nenhuma resposta real ainda** |
+| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência, autocadastro de psicólogos) | Implementada; Realtime, transferência e autocadastro **verificados contra o Supabase real**; telas logadas do painel ainda não exercitadas com equipe real |
 | 5. Autorregulação (sons, upload, 5 jogos) | Implementada |
 | 6. Finalização (privacidade, métricas, testes, docs) | Parcial (ver pendências) |
 
@@ -21,14 +21,17 @@ Atualizado em 29/10/2026.
 - **Supabase real (projeto NeuroApp)**: migrações e seed aplicados; `scripts/smoke-supabase.mjs` passou 17/17
   (canais Realtime privados, intruso recusado, transferência, resposta atrasada da IA descartada, fila sem conteúdo);
   E2E do chat com visitante anônimo passou 6/6 (desktop e celular). Dados de teste removidos ao final.
-- `npm run test:db`: 22 testes em PostgreSQL 17 (PGlite) com stubs de auth/realtime/storage: usuário não lê
+- Autocadastro de psicólogo (`/dashboard/cadastro`): conta nasce pendente, nunca administrativa;
+  smoke test real 21/21; testes de banco do gatilho; testes do formulário.
+- `npm run test:db`: 26 testes em PostgreSQL 17 (PGlite) com stubs de auth/realtime/storage: usuário não lê
   conversa de terceiros; admin sem papel clínico não lê conteúdo; psicólogo pendente bloqueado; duplo
   "assumir" → `already_claimed`; IA atrasada descartada após transferência; idempotência; escalonamento
   por risco; canais Realtime privados; exclusão real vs. retenção; exportação; funções internas não expostas.
   Esses testes encontraram e corrigiram um bug real de ordem de transição. A aplicação no Supabase real revelou
   outro: `close_conversation` não bloqueava quem não era dono quando a conversa não tinha profissional
   (comparação com NULL) — corrigido, com teste de regressão.
-- `npm run test:e2e` com `E2E_SUPABASE=1`: 36/36 (portal + chat, desktop e celular).
+- `npm test` (unitários + componentes + banco): 93 testes.
+- `npm run test:e2e` com `E2E_SUPABASE=1`: 40/40 (portal, entrada de profissionais e chat; desktop e celular).
 
 ## Decisões arquiteturais
 
@@ -47,8 +50,10 @@ Atualizado em 29/10/2026.
 
 ## Pendências (não concluídas)
 
-- Ainda não exercitado no Supabase real: upload de áudio (Storage), e-mails (convite/recuperação), MFA,
-  telas do painel com uma equipe real e exclusão de conta pela interface.
+- Ainda não exercitado no Supabase real: upload de áudio (Storage), e-mails (confirmação de cadastro,
+  convite, recuperação), MFA, telas logadas do painel com uma equipe real e exclusão de conta pela interface.
+- Respostas reais da IA: adicionar créditos na conta OpenAI e mudar `AI_PROVIDER=openai`.
+- Ainda não há administrador no projeto: rodar `scripts/create-superadmin.mjs`.
 - As migrações foram aplicadas pela integração MCP (histórico com nomes próprios). Antes de usar
   `supabase db push`, alinhar o histórico com `supabase migration repair`.
 - Testar provedores Anthropic/OpenAI com credenciais válidas (critério de aceite ainda não cumprido).

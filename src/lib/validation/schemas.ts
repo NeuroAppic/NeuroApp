@@ -41,6 +41,27 @@ export const staffInviteSchema = z
   });
 export type StaffInviteInput = z.input<typeof staffInviteSchema>;
 
+export const staffSignupSchema = z
+  .object({
+    fullName: z.string().trim().min(2, "Informe o nome completo.").max(120),
+    displayName: z.string().trim().min(2, "Informe como as pessoas vão chamar você.").max(60),
+    professionalTitle: z.string().trim().max(60).optional().default("Psicóloga(o)"),
+    professionalRegistry: z
+      .string()
+      .trim()
+      .min(3, "Informe o registro profissional (ex.: CRP 06/123456).")
+      .max(40),
+    email: z.email("E-mail inválido."),
+    password: z.string().min(10, "Use pelo menos 10 caracteres.").max(72, "Use até 72 caracteres."),
+    passwordConfirm: z.string(),
+    declaration: z.literal(true, { error: "Confirme a declaração para continuar." }),
+  })
+  .refine((v) => v.password === v.passwordConfirm, {
+    message: "As senhas não são iguais.",
+    path: ["passwordConfirm"],
+  });
+export type StaffSignupInput = z.input<typeof staffSignupSchema>;
+
 export const staffLoginSchema = z.object({
   email: z.email("E-mail inválido."),
   password: z.string().min(8, "A senha tem pelo menos 8 caracteres."),

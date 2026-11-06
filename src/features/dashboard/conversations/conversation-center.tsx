@@ -10,6 +10,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
 import { STATUS_LABEL } from "@/lib/conversation-labels";
 import { cn, formatDateTime, formatRelative, formatTime } from "@/lib/utils";
 import type { QueueConversation, RiskLevel } from "@/types/domain";
+import { useAvailability } from "../use-availability";
 import { useQueue } from "./use-queue";
 import { useStaffConversation, type StaffConversationDetail } from "./use-staff-conversation";
 
@@ -56,6 +57,16 @@ export function ConversationCenter({
 
   const selectedMeta = items.find((c) => c.id === selected) ?? null;
 
+  // Quantas pessoas esperam por alguém: aparece no título da aba (aviso discreto, sem som).
+  const waitingCount = items.filter((c) => c.status === "waiting_human").length;
+  useEffect(() => {
+    const base = "Atendimentos · Painel Acolher";
+    document.title = waitingCount > 0 ? `(${waitingCount}) ${base}` : base;
+    return () => {
+      document.title = base;
+    };
+  }, [waitingCount]);
+
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -75,6 +86,8 @@ export function ConversationCenter({
           </Badge>
         )}
       </header>
+
+      {isClinician && <AvailabilityNotice waitingCount={waitingCount} />}
 
       <div className="grid gap-4 lg:grid-cols-[20rem_1fr] 2xl:grid-cols-[20rem_1fr_18rem]">
         {/* Coluna esquerda: fila e filtros */}
@@ -121,6 +134,25 @@ export function ConversationCenter({
         )}
       </div>
     </div>
+  );
+}
+
+/** Lembra o profissional de ficar disponível: é isso que o portal mostra a quem pede ajuda. */
+function AvailabilityNotice({ waitingCount }: { waitingCount: number }) {
+  const { availability, setAvailability } = useAvailability();
+  if (availability === null || availability === "available") return null;
+  return (
+    <Notice tone="sky" icon={<CircleDot aria-hidden />}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p>
+          Você não está como <strong>disponível</strong>. Para quem pede ajuda, o portal informa que não
+          há profissionais disponíveis{waitingCount > 0 ? ` — e há ${waitingCount} pessoa(s) aguardando` : ""}.
+        </p>
+        <Button size="sm" onClick={() => void setAvailability("available")}>
+          Ficar disponível
+        </Button>
+      </div>
+    </Notice>
   );
 }
 

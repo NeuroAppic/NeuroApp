@@ -27,10 +27,12 @@ function check(name, ok, detail = "") {
   console.log(`${ok ? "✔" : "✘"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-async function makeUser(label) {
+async function makeUser(label, metadata) {
   const email = `acolher-teste-${label}-${crypto.randomUUID().slice(0, 8)}@example.com`;
   const password = `T${crypto.randomUUID()}!`;
-  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  const { data, error } = await admin.auth.admin.createUser({
+    email, password, email_confirm: true, user_metadata: metadata,
+  });
   if (error) throw new Error(`createUser ${label}: ${error.message}`);
   created.users.push(data.user.id);
   const client = createClient(url, publishable, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -124,6 +126,31 @@ async function main() {
   check("psicóloga assina o canal da conversa elegível", psiSub.status === "SUBSCRIBED", psiSub.status);
 
   for (const sub of [personSub, strangerSub, staffQueueByPerson, psiQueue, psiSub]) await sub.channel.unsubscribe();
+
+  // --- Autocadastro de profissional (/dashboard/cadastro) -------------------
+  const signupPsi = await makeUser("cadastro", {
+    staff_signup: {
+      full_name: "Teste Cadastro", display_name: "Cadastro", professional_title: "Psicóloga",
+      professional_registry: "CRP 00/111111", role: "superadmin",
+    },
+  });
+  const { data: signupProfile } = await admin
+    .from("staff_profiles").select("credential_status").eq("user_id", signupPsi.id).maybeSingle();
+  const { data: signupRoles } = await admin.from("staff_roles").select("role").eq("user_id", signupPsi.id);
+  check("autocadastro cria psicólogo pendente", signupProfile?.credential_status === "pending");
+  check("autocadastro nunca concede papel administrativo",
+    JSON.stringify((signupRoles ?? []).map((r) => r.role)) === JSON.stringify(["psychologist"]));
+
+  const { data: conv2 } = await person.client.rpc("start_conversation", { p_policy_version: "2026-10" });
+  created.conversations.push(conv2);
+  await person.client.rpc("close_conversation", { p_conversation_id: convId });
+  const { data: conv3 } = await person.client.rpc("start_conversation", { p_policy_version: "2026-10" });
+  created.conversations.push(conv3);
+  await person.client.rpc("request_human", { p_conversation_id: conv3 });
+  const { error: pendingClaim } = await signupPsi.client.rpc("claim_conversation", { p_conversation_id: conv3 });
+  check("psicólogo pendente não assume conversas", !!pendingClaim && pendingClaim.message.includes("forbidden"));
+  const { data: pendingRead } = await signupPsi.client.from("messages").select("id").eq("conversation_id", conv3);
+  check("psicólogo pendente não lê conversas na fila", (pendingRead ?? []).length === 0);
 }
 
 async function cleanup() {

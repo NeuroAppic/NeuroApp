@@ -40,7 +40,7 @@ export function DashboardShell({ session, children }: { session: ShellSession; c
 
   const nav = [
     { href: "/dashboard", label: "Visão geral", icon: BarChart3, show: session.isAdmin },
-    { href: "/dashboard/atendimentos", label: "Atendimentos", icon: MessagesSquare, show: session.isClinician || session.isAdmin },
+    { href: "/dashboard/atendimentos", label: "Atendimentos", icon: MessagesSquare, show: session.roles.includes("psychologist") || session.isAdmin },
     { href: "/dashboard/equipe", label: "Equipe", icon: Users, show: session.isAdmin },
     { href: "/dashboard/audios", label: "Áudios", icon: Headphones, show: session.isAdmin },
     { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings, show: session.isAdmin },

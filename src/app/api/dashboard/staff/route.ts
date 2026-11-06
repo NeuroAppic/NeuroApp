@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const admin = getAdminSupabase();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin;
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
-    redirectTo: `${siteUrl}/auth/confirm?next=/dashboard/conta`,
+    redirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
   });
   if (inviteError || !invited.user) {
     return jsonError(409, "invite_failed", "Não foi possível convidar este e-mail. Ele pode já estar cadastrado.");
