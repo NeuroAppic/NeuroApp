@@ -105,13 +105,19 @@ test("painel exige login", async ({ page }) => {
 });
 
 test.describe("entrada de profissionais", () => {
-  test("cadastro de psicólogo abre sem login e valida o CRP", async ({ page }) => {
+  test("cadastro de psicólogo abre sem login e valida os dados", async ({ page }) => {
     await page.goto("/dashboard/entrar");
     await page.getByRole("link", { name: "Cadastre-se" }).click();
     await expect(page).toHaveURL(/\/dashboard\/cadastro$/);
     await expect(page.getByRole("heading", { name: "Cadastro de psicólogo(a)" })).toBeVisible();
-    await page.getByRole("button", { name: "Criar cadastro" }).click();
-    await expect(page.getByText(/Informe o registro profissional/)).toBeVisible();
+    // Modo de teste (STAFF_OPEN_SIGNUP=true): só e-mail e senha. Senão: cadastro com CRP.
+    if (await page.getByText("Ambiente de teste:").isVisible()) {
+      await page.getByRole("button", { name: "Criar conta e entrar" }).click();
+      await expect(page.getByText(/Informe um e-mail válido/)).toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "Criar cadastro" }).click();
+      await expect(page.getByText(/Informe o registro profissional/)).toBeVisible();
+    }
   });
 
   test("link de convite inválido explica o que fazer", async ({ page }) => {

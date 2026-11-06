@@ -21,6 +21,8 @@ Atualizado em 06/11/2026.
 - **Supabase real (projeto NeuroApp)**: migrações e seed aplicados; `scripts/smoke-supabase.mjs` passou 17/17
   (canais Realtime privados, intruso recusado, transferência, resposta atrasada da IA descartada, fila sem conteúdo);
   E2E do chat com visitante anônimo passou 6/6 (desktop e celular). Dados de teste removidos ao final.
+- Modo de teste `STAFF_OPEN_SIGNUP=true`: cadastro de psicólogo só com e-mail e senha, acesso imediato
+  (verificado contra o Supabase real). **Desligar antes de atender pessoas reais.**
 - Autocadastro de psicólogo (`/dashboard/cadastro`): conta nasce pendente, nunca administrativa;
   smoke test real 21/21; testes de banco do gatilho; testes do formulário.
 - `npm run test:db`: 26 testes em PostgreSQL 17 (PGlite) com stubs de auth/realtime/storage: usuário não lê

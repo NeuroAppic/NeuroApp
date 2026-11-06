@@ -71,6 +71,13 @@ confirmada. Se a conta já existe, ela é promovida. Só funciona enquanto não 
 
 ### Como os psicólogos entram
 
+**Modo de teste (`STAFF_OPEN_SIGNUP=true`)** — o mais simples: em `/dashboard/cadastro` basta e-mail
+e senha. A conta é criada já confirmada (sem e-mail de confirmação) e o psicólogo entra direto na central
+de atendimentos, sem CRP nem validação. Use **apenas para testes**: com ele ligado, qualquer cadastro lê
+as conversas na fila. Para pessoas reais, desligue (`false`) e use o fluxo abaixo.
+
+**Modo profissional (`STAFF_OPEN_SIGNUP=false`, padrão):**
+
 1. O(a) psicólogo(a) se cadastra em **`/dashboard/cadastro`** (link "Cadastre-se" em `/dashboard/entrar`)
    com nome, nome exibido, CRP, e-mail e senha, e confirma o e-mail.
 2. A conta nasce como **psicólogo com credencial pendente**: entra no painel, mas não vê nem assume
@@ -125,6 +132,7 @@ Qualquer host Node com suporte a Next.js 16. Passo a passo para a Vercel:
    | `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_REASONING_EFFORT` | só se `AI_PROVIDER=openai` (ex.: `gpt-5.5`, `low`) |
    | `ANTHROPIC_API_KEY` | só se `AI_PROVIDER=anthropic` |
    | `STAFF_REQUIRE_MFA` | `true` em produção |
+   | `STAFF_OPEN_SIGNUP` | `true` só em teste (cadastro de psicólogo com e-mail e senha) |
 
 3. Depois do primeiro deploy, copie o endereço (ex.: `https://neuro-app.vercel.app`), crie
    `NEXT_PUBLIC_SITE_URL` com ele e faça **Redeploy** (variáveis `NEXT_PUBLIC_*` entram no build).
