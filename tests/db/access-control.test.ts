@@ -49,7 +49,7 @@ describe("controle de acesso e fluxo de atendimento", () => {
   let admin: string;
   let psi1: string;
   let psi2: string;
-  let psiPending: string;
+  let psiInactive: string;
 
   beforeAll(async () => {
     db = await createDb();
@@ -58,10 +58,10 @@ describe("controle de acesso e fluxo de atendimento", () => {
     admin = await createStaff(db, { roles: ["admin"], name: "Admin" });
     psi1 = await createStaff(db, { roles: ["psychologist"], name: "Ana", available: true });
     psi2 = await createStaff(db, { roles: ["psychologist"], name: "Beatriz", available: true });
-    psiPending = await createStaff(db, {
+    psiInactive = await createStaff(db, {
       roles: ["psychologist"],
       name: "Carla",
-      verified: false,
+      active: false,
       available: true,
     });
   });
@@ -188,10 +188,11 @@ describe("controle de acesso e fluxo de atendimento", () => {
     );
     expect(after).toBeGreaterThan(0);
 
-    const pending = await as(db, { role: "authenticated", uid: psiPending }, (tx) =>
+    // Conta desativada pela administração não lê nada.
+    const inactive = await as(db, { role: "authenticated", uid: psiInactive }, (tx) =>
       count(tx, "public.messages where conversation_id = $1", [conv]),
     );
-    expect(pending).toBe(0);
+    expect(inactive).toBe(0);
   });
 
   it("transferência IA → humano: só um profissional assume e a IA é bloqueada", async () => {
@@ -463,7 +464,7 @@ describe("controle de acesso e fluxo de atendimento", () => {
   it("gestão de equipe respeita separação de funções", async () => {
     const newPsi = await createAuthUser(db, { email: "nova@equipe.test" });
     await as(db, { role: "authenticated", uid: admin }, (tx) =>
-      rpc(tx, "public.admin_register_staff($1, 'Nova Pessoa', 'Nova', 'Psicóloga', 'CRP 01/1', array['psychologist']::public.staff_role[])", [newPsi]),
+      rpc(tx, "public.admin_register_staff($1, 'Nova', array['psychologist']::public.staff_role[])", [newPsi]),
     );
     // Admin comum não concede papel de superadministrador.
     await expect(
@@ -471,12 +472,13 @@ describe("controle de acesso e fluxo de atendimento", () => {
         rpc(tx, "public.admin_set_roles($1, array['superadmin']::public.staff_role[])", [newPsi]),
       ),
     ).rejects.toThrow(/forbidden/);
-    // Ninguém valida a própria credencial.
+    // Admin comum também não cria outro administrador.
+    const wannabe = await createAuthUser(db, { email: "quase-admin@equipe.test" });
     await expect(
       as(db, { role: "authenticated", uid: admin }, (tx) =>
-        rpc(tx, "public.admin_set_credential_status($1, 'verified')", [admin]),
+        rpc(tx, "public.admin_register_staff($1, 'Quase', array['admin']::public.staff_role[])", [wannabe]),
       ),
-    ).rejects.toThrow(/self_verification_forbidden/);
+    ).rejects.toThrow(/forbidden/);
     // Psicólogo não administra a equipe.
     await expect(
       as(db, { role: "authenticated", uid: psi1 }, (tx) =>

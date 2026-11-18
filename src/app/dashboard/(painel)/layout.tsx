@@ -28,7 +28,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         isAdmin: session.isAdmin,
         isSuperadmin: session.isSuperadmin,
         isClinician: session.isClinician,
-        credentialStatus: session.credentialStatus,
       }}
     >
       {children}

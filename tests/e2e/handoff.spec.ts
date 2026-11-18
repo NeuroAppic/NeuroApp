@@ -59,7 +59,6 @@ test.describe("atendimento humano", () => {
       user_id: staffId,
       full_name: "Teste E2E",
       display_name: "Teste E2E",
-      credential_status: "verified",
     });
     await admin.from("staff_roles").insert({ user_id: staffId, role: "psychologist" });
   });
@@ -151,5 +150,47 @@ test.describe("atendimento humano", () => {
     await page.goto("/dashboard/equipe");
     await expect(page).toHaveURL(/\/dashboard\/atendimentos$/);
     await context.close();
+  });
+
+  test("administrador cadastra psicólogo só com e-mail e senha, e ele já atende", async ({ browser }) => {
+    // Conta de administrador descartável (a conta de psicóloga do beforeEach vira administradora).
+    await admin.from("staff_roles").delete().eq("user_id", staffId);
+    await admin.from("staff_roles").insert({ user_id: staffId, role: "admin" });
+
+    const adminContext = await browser.newContext();
+    await signInContext(adminContext, email, password);
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto("/dashboard/equipe");
+
+    const newEmail = `acolher-teste-novo-${crypto.randomUUID().slice(0, 8)}@example.com`;
+    const newPassword = `T${crypto.randomUUID().slice(0, 12)}`;
+    await adminPage.getByRole("button", { name: "Cadastrar psicólogo(a)" }).click();
+    const dialog = adminPage.getByRole("dialog");
+    await expect(dialog.getByText(/Registro|CRP/)).toHaveCount(0);
+    await dialog.getByLabel("E-mail").fill(newEmail);
+    await dialog.getByLabel("Senha").fill(newPassword);
+    await dialog.getByRole("button", { name: "Criar conta" }).click();
+    await expect(adminPage.getByText(/Conta criada\./)).toBeVisible({ timeout: 15_000 });
+
+    const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
+    const created = list.users.find((u) => u.email === newEmail);
+    expect(created?.email_confirmed_at).toBeTruthy();
+    try {
+      // A conta nova entra direto e já tem a central de atendimentos.
+      const psiContext = await browser.newContext();
+      await signInContext(psiContext, newEmail, newPassword);
+      const psiPage = await psiContext.newPage();
+      await psiPage.goto("/dashboard");
+      await expect(psiPage).toHaveURL(/\/dashboard\/atendimentos$/);
+      await expect(psiPage.getByRole("heading", { name: "Atendimentos" })).toBeVisible();
+      await expect(psiPage.getByRole("button", { name: "Ficar disponível" })).toBeVisible();
+      await psiContext.close();
+    } finally {
+      if (created) {
+        await admin.from("audit_logs").delete().eq("target_id", created.id);
+        await admin.auth.admin.deleteUser(created.id);
+      }
+      await adminContext.close();
+    }
   });
 });

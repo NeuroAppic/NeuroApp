@@ -105,19 +105,15 @@ test("painel exige login", async ({ page }) => {
 });
 
 test.describe("entrada de profissionais", () => {
-  test("cadastro de psicólogo abre sem login e valida os dados", async ({ page }) => {
+  test("não existe autocadastro: o login não oferece cadastro e /dashboard/cadastro não abre", async ({ page }) => {
     await page.goto("/dashboard/entrar");
-    await page.getByRole("link", { name: "Cadastre-se" }).click();
-    await expect(page).toHaveURL(/\/dashboard\/cadastro$/);
-    await expect(page.getByRole("heading", { name: "Cadastro de psicólogo(a)" })).toBeVisible();
-    // Modo de teste (STAFF_OPEN_SIGNUP=true): só e-mail e senha. Senão: cadastro com CRP.
-    if (await page.getByText("Ambiente de teste:").isVisible()) {
-      await page.getByRole("button", { name: "Criar conta e entrar" }).click();
-      await expect(page.getByText(/Informe um e-mail válido/)).toBeVisible();
-    } else {
-      await page.getByRole("button", { name: "Criar cadastro" }).click();
-      await expect(page.getByText(/Informe o registro profissional/)).toBeVisible();
-    }
+    await expect(page.getByRole("heading", { name: "Área da equipe" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Cadastre-se/ })).toHaveCount(0);
+    await expect(page.getByText("Contas de profissionais são criadas pela administração do serviço.")).toBeVisible();
+    await page.goto("/dashboard/cadastro");
+    await expect(page).toHaveURL(/\/dashboard\/entrar/);
+    const api = await page.request.post("/api/dashboard/signup", { data: { email: "a@gmail.com", password: "12345678" } });
+    expect(api.status()).toBe(404);
   });
 
   test("link de convite inválido explica o que fazer", async ({ page }) => {

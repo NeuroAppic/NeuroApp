@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import { Logo } from "@/components/layout/logo";
 import { Badge } from "@/components/ui/badge";
 import { getBrowserSupabase } from "@/lib/supabase/client";
-import type { CredentialStatus, StaffRole } from "@/types/domain";
+import type { StaffRole } from "@/types/domain";
 import { AvailabilityControl } from "./availability-control";
 
 export interface ShellSession {
@@ -25,7 +25,6 @@ export interface ShellSession {
   isAdmin: boolean;
   isSuperadmin: boolean;
   isClinician: boolean;
-  credentialStatus: CredentialStatus;
 }
 
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -40,7 +39,7 @@ export function DashboardShell({ session, children }: { session: ShellSession; c
 
   const nav = [
     { href: "/dashboard", label: "Visão geral", icon: BarChart3, show: session.isAdmin },
-    { href: "/dashboard/atendimentos", label: "Atendimentos", icon: MessagesSquare, show: session.roles.includes("psychologist") || session.isAdmin },
+    { href: "/dashboard/atendimentos", label: "Atendimentos", icon: MessagesSquare, show: session.isClinician || session.isAdmin },
     { href: "/dashboard/equipe", label: "Equipe", icon: Users, show: session.isAdmin },
     { href: "/dashboard/audios", label: "Áudios", icon: Headphones, show: session.isAdmin },
     { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings, show: session.isAdmin },
@@ -64,11 +63,6 @@ export function DashboardShell({ session, children }: { session: ShellSession; c
         <div className="px-4 pb-3">
           <p className="font-semibold">{session.displayName}</p>
           <p className="text-sm text-foreground-muted">{session.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
-          {session.roles.includes("psychologist") && session.credentialStatus !== "verified" && (
-            <p className="mt-2 rounded-lg bg-danger-soft p-2 text-xs font-semibold text-danger">
-              Credencial aguardando validação administrativa. O acesso a atendimentos fica bloqueado até lá.
-            </p>
-          )}
           {session.isClinician && <AvailabilityControl className="mt-3" />}
         </div>
         <nav aria-label="Painel" className="overflow-x-auto px-2 pb-2">

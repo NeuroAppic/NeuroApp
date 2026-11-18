@@ -22,7 +22,7 @@ interface Metrics {
     | "human_sessions_closed_30d",
     number
   >;
-  staff: Record<"available_clinicians" | "active_clinicians" | "pending_credentials", number>;
+  staff: Record<"available_clinicians" | "active_clinicians", number>;
   ai: Record<"requests_24h" | "requests_7d" | "errors_24h" | "tokens_24h" | "tokens_30d", number>;
   usage_by_hour_7d: number[];
   conversations_by_day_14d: { day: string; count: number }[];
@@ -84,8 +84,7 @@ export default async function OverviewPage() {
       </Section>
 
       <Section title="Equipe e IA">
-        <Stat label="Profissionais disponíveis" value={m.staff.available_clinicians} hint={`${m.staff.active_clinicians} habilitados no total`} />
-        <Stat label="Credenciais pendentes" value={m.staff.pending_credentials} />
+        <Stat label="Profissionais disponíveis" value={m.staff.available_clinicians} hint={`${m.staff.active_clinicians} ativos no total`} />
         <Stat label="Respostas da IA (24 h)" value={m.ai.requests_24h} hint={`${formatNumber(m.ai.errors_24h)} falhas · ${formatNumber(m.ai.requests_7d)} em 7 dias`} />
         <Stat label="Tokens de IA (30 dias)" value={m.ai.tokens_30d} hint={`${formatNumber(m.ai.tokens_24h)} nas últimas 24 h`} />
         <Stat label="Pedidos de exclusão pendentes" value={m.pending_deletion_requests} />

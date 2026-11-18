@@ -14,7 +14,7 @@ export default async function EquipePage() {
   const [{ data: profiles }, { data: roles }] = await Promise.all([
     supabase
       .from("staff_profiles")
-      .select("user_id, full_name, display_name, professional_title, professional_registry, credential_status, is_active, availability, last_seen_at")
+      .select("user_id, full_name, display_name, professional_title, is_active, availability, last_seen_at")
       .order("full_name"),
     supabase.from("staff_roles").select("user_id, role"),
   ]);

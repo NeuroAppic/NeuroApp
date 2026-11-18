@@ -55,7 +55,7 @@ Veja [.env.example](.env.example). `SUPABASE_SECRET_KEY` e chaves de IA ficam **
   e **MFA TOTP**. Localmente já vêm ativos em `supabase/config.toml`.
 - Em **Authentication → URL Configuration**: **Site URL** = endereço do app; em **Redirect URLs**
   adicione `http://localhost:3000/**` (desenvolvimento) e `https://<seu-endereco>/**` (produção).
-  Os links de e-mail chegam em `/auth/confirm` (cadastro e nova senha) e `/auth/callback` (convites).
+  Os links de e-mail (recuperação de senha, conta de visitante com e-mail) chegam em `/auth/confirm`.
   Os modelos de e-mail padrão do Supabase funcionam sem alteração.
 - Retenção diária (opcional, pg_cron): `supabase/optional/schedule_retention.sql`.
 - Tipos gerados: `npm run db:types`.
@@ -71,34 +71,42 @@ confirmada. Se a conta já existe, ela é promovida. Só funciona enquanto não 
 
 ### Como os psicólogos entram
 
-**Modo de teste (`STAFF_OPEN_SIGNUP=true`)** — o mais simples: em `/dashboard/cadastro` basta e-mail
-e senha. A conta é criada já confirmada (sem e-mail de confirmação) e o psicólogo entra direto na central
-de atendimentos, sem CRP nem validação. Use **apenas para testes**: com ele ligado, qualquer cadastro lê
-as conversas na fila. Para pessoas reais, desligue (`false`) e use o fluxo abaixo.
+Não existe autocadastro nem registro profissional (CRP): **quem cria as contas é o administrador.**
 
-**Modo profissional (`STAFF_OPEN_SIGNUP=false`, padrão):**
+1. O administrador (o primeiro é criado pelo script acima) entra em `/dashboard/entrar` e abre
+   **Equipe → Cadastrar psicólogo(a)**.
+2. Informa só **e-mail e senha** (e, se quiser, o nome que aparece no chat; vazio = começo do e-mail,
+   ex.: `ana.souza@gmail.com` → "Ana Souza").
+3. A conta nasce **confirmada e ativa** (sem e-mail de convite). Passe o e-mail e a senha para o
+   psicólogo: ele entra em `/dashboard/entrar` e já tem acesso aos atendimentos.
+4. Na central: **Ficar disponível** → fila em tempo real → **Assumir atendimento** (a IA para na hora)
+   → conversa → **Finalizar** ou **Devolver para a IA**. A aba do navegador mostra quantas pessoas aguardam.
 
-1. O(a) psicólogo(a) se cadastra em **`/dashboard/cadastro`** (link "Cadastre-se" em `/dashboard/entrar`)
-   com nome, nome exibido, CRP, e-mail e senha, e confirma o e-mail.
-2. A conta nasce como **psicólogo com credencial pendente**: entra no painel, mas não vê nem assume
-   conversas. O cadastro nunca concede papel administrativo.
-3. Um administrador confere o CRP e clica em **Validar credencial** em `/dashboard/equipe`.
-   Ninguém valida a própria credencial: o administrador e o psicólogo precisam ser contas diferentes.
-4. Validado, o(a) psicólogo(a) escolhe **Disponível para atender** no menu e usa
-   **Atendimentos**: fila em tempo real → **Assumir atendimento** → conversa → **Finalizar** ou
-   **Devolver para a IA**. A aba do navegador mostra quantas pessoas aguardam.
-
-Administradores também podem convidar profissionais por e-mail em `/dashboard/equipe`.
+Para tirar o acesso de alguém, use **Desativar acesso** em Equipe: os atendimentos ativos dessa pessoa
+voltam para a fila. Superadministradores também ajustam papéis (psicólogo, administrador).
 
 ## IA
 
-`AI_PROVIDER=openai` (exige `OPENAI_API_KEY` e `OPENAI_MODEL`, ex.: `gpt-5.5`;
-`OPENAI_REASONING_EFFORT=low` deixa as respostas mais rápidas) ou `anthropic` (padrão do modelo:
-`claude-opus-5-5`, com fallback de recusa no servidor). `mock` é um simulador sem IA, identificado
-na interface. A API da OpenAI é cobrada à parte do ChatGPT: sem créditos em
-platform.openai.com/settings/organization/billing, o chat mostra "O assistente não conseguiu
-responder agora" (a mensagem da pessoa fica salva). Prompt de sistema versionado em
-`src/lib/ai/prompts/system-prompt.ts`. Limites de uso configuráveis no painel.
+Escolha o provedor em `AI_PROVIDER` (as variáveis são validadas em `src/lib/ai/config.ts`):
+
+| Provedor | Variáveis | Observações |
+|---|---|---|
+| `gemini` | `GEMINI_API_KEY`, `GEMINI_MODEL` (padrão `gemini-flash-latest`), `GEMINI_THINKING_LEVEL` (`low`) | SDK oficial `@google/genai`; chave em aistudio.google.com/apikey. O `gemini-2.5-flash` não é mais oferecido a contas novas. |
+| `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL` (ex.: `gpt-5.5`), `OPENAI_REASONING_EFFORT` | Cobrada à parte do ChatGPT: precisa de créditos em platform.openai.com/settings/organization/billing. |
+| `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (padrão `claude-opus-5-5`) | Fallback de recusa no servidor. |
+| `mock` | — | Simulador sem IA, identificado na interface ("Modo demonstração"). |
+
+**Filtros de segurança do Gemini** (`src/lib/ai/providers/gemini.ts`): os padrões do Google podem
+bloquear desabafos legítimos ("quero morrer", relatos de violência sofrida). Por isso conteúdo perigoso,
+assédio e discurso de ódio só são bloqueados com probabilidade **alta**; conteúdo sexual explícito segue
+bloqueado a partir de risco médio. O acolhimento, a orientação e o encaminhamento humano ficam com o
+prompt de sistema (`src/lib/ai/prompts/system-prompt.ts`) e o classificador de risco do servidor. Se o
+Google ainda assim bloquear, a pessoa recebe a resposta de segurança com CVV (188) e SAMU (192). Quando
+o servidor do Google está sobrecarregado (503), o app tenta de novo uma vez com o modelo reserva
+`GEMINI_FALLBACK_MODEL` (padrão `gemini-flash-lite-latest`).
+
+Em qualquer provedor, se a IA falhar, a mensagem da pessoa fica salva e o chat oferece tentar de novo,
+pedir uma pessoa e os contatos de ajuda. Limites de uso configuráveis no painel.
 
 ## Comandos
 
@@ -128,11 +136,11 @@ Qualquer host Node com suporte a Next.js 16. Passo a passo para a Vercel:
    | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | chave publicável (`sb_publishable_...`) |
    | `SUPABASE_SECRET_KEY` | chave secreta (`sb_secret_...`) — nunca com prefixo `NEXT_PUBLIC_` |
-   | `AI_PROVIDER` | `mock`, `openai` ou `anthropic` |
+   | `AI_PROVIDER` | `gemini`, `openai`, `anthropic` ou `mock` |
+   | `GEMINI_API_KEY` / `GEMINI_MODEL` / `GEMINI_THINKING_LEVEL` | só se `AI_PROVIDER=gemini` (ex.: `gemini-flash-latest`, `low`) |
    | `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_REASONING_EFFORT` | só se `AI_PROVIDER=openai` (ex.: `gpt-5.5`, `low`) |
    | `ANTHROPIC_API_KEY` | só se `AI_PROVIDER=anthropic` |
    | `STAFF_REQUIRE_MFA` | `true` em produção |
-   | `STAFF_OPEN_SIGNUP` | `true` só em teste (cadastro de psicólogo com e-mail e senha) |
 
 3. Depois do primeiro deploy, copie o endereço (ex.: `https://neuro-app.vercel.app`), crie
    `NEXT_PUBLIC_SITE_URL` com ele e faça **Redeploy** (variáveis `NEXT_PUBLIC_*` entram no build).

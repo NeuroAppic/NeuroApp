@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { FieldError, Input, Label } from "@/components/ui/field";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { formatRelative } from "@/lib/utils";
-import { staffInviteSchema, type StaffInviteInput } from "@/lib/validation/schemas";
+import { staffCreateSchema, type StaffCreateInput } from "@/lib/validation/schemas";
 import type { StaffMember, StaffRole } from "@/types/domain";
 
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -20,8 +20,6 @@ const ROLE_LABEL: Record<StaffRole, string> = {
   admin: "Administrador",
   psychologist: "Psicólogo(a)",
 };
-
-const CREDENTIAL_LABEL = { pending: "Credencial pendente", verified: "Credencial validada", rejected: "Credencial recusada" } as const;
 
 export function StaffManager({
   staff,
@@ -39,13 +37,11 @@ export function StaffManager({
     setMessage(null);
     const { error } = await getBrowserSupabase().rpc(fn, args);
     if (error) {
-      const text = error.message.includes("self_verification_forbidden")
-        ? "Ninguém valida a própria credencial. Peça a outro administrador."
-        : error.message.includes("last_superadmin")
-          ? "É preciso manter pelo menos um superadministrador."
-          : error.message.includes("registry_required")
-            ? "Cadastre o registro profissional antes de conceder o papel de psicólogo."
-            : "Você não tem permissão para esta ação ou os dados são inválidos.";
+      const text = error.message.includes("last_superadmin")
+        ? "É preciso manter pelo menos um superadministrador."
+        : error.message.includes("cannot_change_self")
+          ? "Você não pode desativar a própria conta."
+          : "Você não tem permissão para esta ação ou os dados são inválidos.";
       setMessage({ tone: "error", text });
       return;
     }
@@ -59,81 +55,92 @@ export function StaffManager({
         <div>
           <h1 className="text-2xl font-bold">Equipe</h1>
           <p className="text-foreground-muted">
-            Convide profissionais, valide credenciais e gerencie acessos. Toda ação fica registrada na auditoria.
+            Cadastre psicólogos com e-mail e senha e gerencie acessos. Toda ação fica registrada na auditoria.
           </p>
         </div>
-        <InviteDialog isSuperadmin={isSuperadmin} onDone={() => router.refresh()} />
+        <CreateStaffDialog
+          isSuperadmin={isSuperadmin}
+          onDone={(text) => {
+            setMessage({ tone: "ok", text });
+            router.refresh();
+          }}
+        />
       </header>
 
       {message && (
-        <p role={message.tone === "error" ? "alert" : "status"} className={message.tone === "error" ? "rounded-xl bg-danger-soft p-3 font-medium text-danger" : "rounded-xl bg-primary-soft p-3"}>
+        <p
+          role={message.tone === "error" ? "alert" : "status"}
+          className={message.tone === "error" ? "rounded-xl bg-danger-soft p-3 font-medium text-danger" : "rounded-xl bg-primary-soft p-3"}
+        >
           {message.text}
         </p>
       )}
 
-      <ul className="grid gap-3">
-        {staff.map((member) => {
-          const isSelf = member.user_id === currentUserId;
-          const isPsychologist = member.roles.includes("psychologist");
-          return (
-            <li key={member.user_id}>
-              <Card className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">
-                      {member.full_name} {isSelf && <span className="text-foreground-muted">(você)</span>}
-                    </p>
-                    <p className="text-sm text-foreground-muted">
-                      Exibido como “{member.display_name}{member.professional_title ? ` · ${member.professional_title}` : ""}”
-                      {member.professional_registry && ` · ${member.professional_registry}`}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {member.roles.map((r) => (
-                        <Badge key={r} tone="lavender">{ROLE_LABEL[r]}</Badge>
-                      ))}
-                      {isPsychologist && (
-                        <Badge tone={member.credential_status === "verified" ? "primary" : "danger"}>
-                          {CREDENTIAL_LABEL[member.credential_status]}
-                        </Badge>
-                      )}
-                      {!member.is_active && <Badge tone="danger">Desativado</Badge>}
-                      {member.is_active && member.last_seen_at && (
-                        <Badge tone="neutral">Visto {formatRelative(member.last_seen_at)}</Badge>
-                      )}
+      {staff.length === 0 ? (
+        <p className="text-foreground-muted">Ninguém cadastrado ainda.</p>
+      ) : (
+        <ul className="grid gap-3">
+          {staff.map((member) => {
+            const isSelf = member.user_id === currentUserId;
+            return (
+              <li key={member.user_id}>
+                <Card className="p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">
+                        {member.display_name} {isSelf && <span className="text-foreground-muted">(você)</span>}
+                      </p>
+                      <p className="text-sm text-foreground-muted">
+                        Aparece no chat como “{member.display_name}
+                        {member.professional_title ? ` · ${member.professional_title}` : ""}”
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {member.roles.map((r) => (
+                          <Badge key={r} tone="lavender">{ROLE_LABEL[r]}</Badge>
+                        ))}
+                        {!member.is_active && <Badge tone="danger">Desativado</Badge>}
+                        {member.is_active && member.availability === "available" && <Badge tone="primary">Disponível</Badge>}
+                        {member.is_active && member.last_seen_at && (
+                          <Badge tone="neutral">Visto {formatRelative(member.last_seen_at)}</Badge>
+                        )}
+                      </div>
                     </div>
+                    {!isSelf && (
+                      <div className="flex flex-wrap gap-2">
+                        {member.is_active ? (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              rpc("admin_set_staff_active", { p_user_id: member.user_id, p_active: false }, "Acesso revogado. Atendimentos ativos voltaram para a fila.")
+                            }
+                          >
+                            Desativar acesso
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => rpc("admin_set_staff_active", { p_user_id: member.user_id, p_active: true }, "Acesso reativado.")}
+                          >
+                            Reativar
+                          </Button>
+                        )}
+                        {isSuperadmin && (
+                          <RolesDialog
+                            member={member}
+                            onSave={(roles) => rpc("admin_set_roles", { p_user_id: member.user_id, p_roles: roles }, "Papéis atualizados.")}
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {!isSelf && (
-                    <div className="flex flex-wrap gap-2">
-                      {isPsychologist && member.credential_status !== "verified" && (
-                        <Button size="sm" onClick={() => rpc("admin_set_credential_status", { p_user_id: member.user_id, p_status: "verified" }, "Credencial validada.")}>
-                          Validar credencial
-                        </Button>
-                      )}
-                      {isPsychologist && member.credential_status === "verified" && (
-                        <Button size="sm" variant="secondary" onClick={() => rpc("admin_set_credential_status", { p_user_id: member.user_id, p_status: "rejected" }, "Credencial marcada como recusada.")}>
-                          Suspender credencial
-                        </Button>
-                      )}
-                      {member.is_active ? (
-                        <Button size="sm" variant="danger" onClick={() => rpc("admin_set_staff_active", { p_user_id: member.user_id, p_active: false }, "Acesso revogado. Atendimentos ativos voltaram para a fila.")}>
-                          Desativar acesso
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="secondary" onClick={() => rpc("admin_set_staff_active", { p_user_id: member.user_id, p_active: true }, "Acesso reativado.")}>
-                          Reativar
-                        </Button>
-                      )}
-                      {isSuperadmin && (
-                        <RolesDialog member={member} onSave={(roles) => rpc("admin_set_roles", { p_user_id: member.user_id, p_roles: roles }, "Papéis atualizados.")} />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </li>
-          );
-        })}
-      </ul>
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -170,7 +177,8 @@ function RolesDialog({ member, onSave }: { member: StaffMember; onSave: (roles: 
   );
 }
 
-function InviteDialog({ isSuperadmin, onDone }: { isSuperadmin: boolean; onDone: () => void }) {
+/** Cadastro direto: a conta nasce confirmada e ativa, pronta para entrar. */
+function CreateStaffDialog({ isSuperadmin, onDone }: { isSuperadmin: boolean; onDone: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -178,12 +186,12 @@ function InviteDialog({ isSuperadmin, onDone }: { isSuperadmin: boolean; onDone:
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<StaffInviteInput>({
-    resolver: zodResolver(staffInviteSchema),
-    defaultValues: { roles: ["psychologist"], professionalTitle: "Psicóloga(o)" },
+  } = useForm<StaffCreateInput>({
+    resolver: zodResolver(staffCreateSchema),
+    defaultValues: { roles: ["psychologist"], displayName: "" },
   });
 
-  async function onSubmit(values: StaffInviteInput) {
+  async function onSubmit(values: StaffCreateInput) {
     setServerError(null);
     const response = await fetch("/api/dashboard/staff", {
       method: "POST",
@@ -192,57 +200,57 @@ function InviteDialog({ isSuperadmin, onDone }: { isSuperadmin: boolean; onDone:
     });
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      setServerError(body?.error?.message ?? "Não foi possível enviar o convite.");
+      setServerError(body?.error?.message ?? "Não foi possível criar a conta.");
       return;
     }
     reset();
     setOpen(false);
-    onDone();
+    onDone(`Conta criada. ${values.email} já pode entrar em /dashboard/entrar com a senha cadastrada.`);
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <UserPlus aria-hidden /> Convidar profissional
+          <UserPlus aria-hidden /> Cadastrar psicólogo(a)
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle>Convidar profissional</DialogTitle>
+        <DialogTitle>Cadastrar psicólogo(a)</DialogTitle>
         <DialogDescription>
-          A pessoa recebe um e-mail para definir a senha. Psicólogos só atendem depois que outro administrador validar o registro profissional.
+          A conta é criada já confirmada. Passe o e-mail e a senha para a pessoa: ela entra direto no painel e
+          pode assumir atendimentos.
         </DialogDescription>
         <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4" noValidate>
-          <Field id="convite-email" label="E-mail" error={errors.email?.message}>
-            <Input id="convite-email" type="email" {...register("email")} aria-invalid={!!errors.email} />
+          <Field id="novo-email" label="E-mail" error={errors.email?.message}>
+            <Input id="novo-email" type="email" autoComplete="off" placeholder="nome@gmail.com" aria-invalid={!!errors.email} {...register("email")} />
           </Field>
-          <Field id="convite-nome" label="Nome completo" error={errors.fullName?.message}>
-            <Input id="convite-nome" {...register("fullName")} aria-invalid={!!errors.fullName} />
+          <Field id="novo-senha" label="Senha" hint="Pelo menos 8 caracteres" error={errors.password?.message}>
+            <Input id="novo-senha" type="password" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
           </Field>
-          <Field id="convite-exibicao" label="Nome exibido para quem é atendido" error={errors.displayName?.message}>
-            <Input id="convite-exibicao" {...register("displayName")} aria-invalid={!!errors.displayName} />
+          <Field
+            id="novo-nome"
+            label="Nome exibido no chat (opcional)"
+            hint="Se ficar vazio, usamos o começo do e-mail. Ex.: ana.souza@… → Ana Souza"
+            error={errors.displayName?.message}
+          >
+            <Input id="novo-nome" aria-invalid={!!errors.displayName} {...register("displayName")} />
           </Field>
-          <Field id="convite-titulo" label="Título profissional" error={errors.professionalTitle?.message}>
-            <Input id="convite-titulo" {...register("professionalTitle")} />
-          </Field>
-          <Field id="convite-registro" label="Registro profissional (ex.: CRP 06/123456)" error={errors.professionalRegistry?.message}>
-            <Input id="convite-registro" {...register("professionalRegistry")} aria-invalid={!!errors.professionalRegistry} />
-          </Field>
-          <fieldset>
-            <legend className="font-semibold">Papéis</legend>
-            {(["psychologist", "admin", "superadmin"] as const)
-              .filter((r) => isSuperadmin || r === "psychologist")
-              .map((role) => (
+          {isSuperadmin && (
+            <fieldset>
+              <legend className="font-semibold">Papéis</legend>
+              {(["psychologist", "admin", "superadmin"] as const).map((role) => (
                 <label key={role} className="flex min-h-11 items-center gap-3">
                   <input type="checkbox" value={role} className="size-5 accent-[var(--primary)]" {...register("roles")} />
                   {ROLE_LABEL[role]}
                 </label>
               ))}
-            <FieldError message={errors.roles?.message} />
-          </fieldset>
+              <FieldError message={errors.roles?.message} />
+            </fieldset>
+          )}
           {serverError && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm font-medium text-danger">{serverError}</p>}
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Enviando…" : "Enviar convite"}
+            {isSubmitting ? "Criando…" : "Criar conta"}
           </Button>
         </form>
       </DialogContent>
@@ -250,10 +258,11 @@ function InviteDialog({ isSuperadmin, onDone }: { isSuperadmin: boolean; onDone:
   );
 }
 
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
+function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error?: string; children: ReactNode }) {
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
+      {hint && <p className="text-sm text-foreground-muted">{hint}</p>}
       <div className="mt-1">{children}</div>
       <FieldError message={error} />
     </div>

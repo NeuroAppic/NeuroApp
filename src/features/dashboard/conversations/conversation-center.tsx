@@ -350,8 +350,7 @@ function TransferControl({ onTransfer, staffId, disabled }: { onTransfer: (id: s
         .from("staff_profiles")
         .select("user_id, display_name")
         .in("user_id", ids)
-        .eq("is_active", true)
-        .eq("credential_status", "verified");
+        .eq("is_active", true);
       setOptions((data ?? []) as { user_id: string; display_name: string }[]);
     })();
   }, [open, staffId]);

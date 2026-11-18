@@ -136,7 +136,8 @@ export async function createStaff(
   db: PGlite,
   opts: {
     roles: ("superadmin" | "admin" | "psychologist")[];
-    verified?: boolean;
+    /** Conta desativada pela administração (sem acesso). */
+    active?: boolean;
     available?: boolean;
     name?: string;
   },
@@ -145,16 +146,14 @@ export async function createStaff(
   const name = opts.name ?? "Profissional";
   await db.query(
     `insert into public.staff_profiles
-       (user_id, full_name, display_name, professional_title, professional_registry,
-        credential_status, availability, last_seen_at)
-     values ($1, $2, $3, $4, $5, $6, $7, now())`,
+       (user_id, full_name, display_name, professional_title, is_active, availability, last_seen_at)
+     values ($1, $2, $3, $4, $5, $6, now())`,
     [
       id,
       `${name} Teste`,
       name,
       opts.roles.includes("psychologist") ? "Psicóloga" : null,
-      opts.roles.includes("psychologist") ? "CRP 00/000000" : null,
-      opts.verified === false ? "pending" : "verified",
+      opts.active !== false,
       opts.available ? "available" : "offline",
     ],
   );

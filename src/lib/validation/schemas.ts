@@ -26,41 +26,40 @@ export type PostMessageInput = z.infer<typeof postMessageSchema>;
 
 export const uuidParamSchema = z.uuid();
 
-export const staffInviteSchema = z
-  .object({
-    email: z.email("E-mail inválido.").max(200),
-    fullName: z.string().trim().min(2, "Informe o nome completo.").max(120),
-    displayName: z.string().trim().min(2, "Informe como a pessoa será chamada.").max(60),
-    professionalTitle: z.string().trim().max(60).optional().default(""),
-    professionalRegistry: z.string().trim().max(40).optional().default(""),
-    roles: z.array(z.enum(["superadmin", "admin", "psychologist"])).min(1, "Escolha ao menos um papel."),
-  })
-  .refine((v) => !v.roles.includes("psychologist") || v.professionalRegistry.length >= 3, {
-    message: "Psicólogos precisam de registro profissional (ex.: CRP 06/123456).",
-    path: ["professionalRegistry"],
-  });
-export type StaffInviteInput = z.input<typeof staffInviteSchema>;
+/**
+ * Conta da equipe criada pelo administrador: só e-mail e senha (o nome exibido
+ * no chat é opcional e, se vazio, vem do e-mail). Sem registro profissional.
+ */
+export const staffCreateSchema = z.object({
+  email: z.email("Informe um e-mail válido (ex.: nome@gmail.com).").max(200),
+  password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use até 72 caracteres."),
+  displayName: z
+    .string()
+    .trim()
+    .max(60, "Use até 60 caracteres.")
+    .refine((v) => v.length === 0 || v.length >= 2, "Use pelo menos 2 caracteres ou deixe em branco.")
+    .optional()
+    .default(""),
+  roles: z
+    .array(z.enum(["superadmin", "admin", "psychologist"]))
+    .min(1, "Escolha ao menos um papel.")
+    .optional()
+    .default(["psychologist"]),
+});
+export type StaffCreateInput = z.input<typeof staffCreateSchema>;
 
-export const staffSignupSchema = z
-  .object({
-    fullName: z.string().trim().min(2, "Informe o nome completo.").max(120),
-    displayName: z.string().trim().min(2, "Informe como as pessoas vão chamar você.").max(60),
-    professionalTitle: z.string().trim().max(60).optional().default("Psicóloga(o)"),
-    professionalRegistry: z
-      .string()
-      .trim()
-      .min(3, "Informe o registro profissional (ex.: CRP 06/123456).")
-      .max(40),
-    email: z.email("E-mail inválido."),
-    password: z.string().min(10, "Use pelo menos 10 caracteres.").max(72, "Use até 72 caracteres."),
-    passwordConfirm: z.string(),
-    declaration: z.literal(true, { error: "Confirme a declaração para continuar." }),
-  })
-  .refine((v) => v.password === v.passwordConfirm, {
-    message: "As senhas não são iguais.",
-    path: ["passwordConfirm"],
-  });
-export type StaffSignupInput = z.input<typeof staffSignupSchema>;
+/** "ana.souza92@gmail.com" → "Ana Souza" (nome exibido a quem é atendido). */
+export function displayNameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const words = local
+    .replace(/[0-9]+/g, " ")
+    .split(/[._\-+\s]+/)
+    .filter((w) => w.length > 0)
+    .slice(0, 3)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  const name = words.join(" ").slice(0, 60).trim();
+  return name.length >= 2 ? name : "Profissional";
+}
 
 export const staffLoginSchema = z.object({
   email: z.email("E-mail inválido."),

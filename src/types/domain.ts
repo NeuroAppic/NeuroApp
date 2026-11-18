@@ -18,7 +18,6 @@ export type MessageInputSource = "typed" | "quick" | "guided";
 export type RiskLevel = "none" | "attention" | "high" | "critical";
 export type StaffRole = "superadmin" | "admin" | "psychologist";
 export type StaffAvailability = "offline" | "available" | "busy" | "away";
-export type CredentialStatus = "pending" | "verified" | "rejected";
 
 /** Mensagem como o portal a recebe (sem colunas internas). */
 export interface ChatMessage {
@@ -109,8 +108,6 @@ export interface StaffMember {
   full_name: string;
   display_name: string;
   professional_title: string | null;
-  professional_registry: string | null;
-  credential_status: CredentialStatus;
   is_active: boolean;
   availability: StaffAvailability;
   last_seen_at: string | null;

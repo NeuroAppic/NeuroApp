@@ -3,21 +3,24 @@ import { getStaffSession } from "@/lib/auth/dal";
 import { assertSameOrigin, jsonError } from "@/lib/http";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { getServerSupabase } from "@/lib/supabase/server";
-import { staffInviteSchema } from "@/lib/validation/schemas";
+import { displayNameFromEmail, staffCreateSchema } from "@/lib/validation/schemas";
 
 /**
- * Convida um profissional por e-mail (Supabase Auth) e registra o perfil.
+ * O administrador cria a conta de um profissional com e-mail e senha.
+ * A conta nasce confirmada (sem e-mail de convite) e ativa: a pessoa entra
+ * em /dashboard/entrar e já pode atender.
+ *
  * Autorização: sessão de administrador verificada aqui E de novo no banco
- * (admin_register_staff, executada com a sessão de quem convida → auditoria).
+ * (admin_register_staff, executada com a sessão de quem cria → auditoria).
  */
 export async function POST(request: NextRequest) {
   const blocked = assertSameOrigin(request);
   if (blocked) return blocked;
 
   const session = await getStaffSession();
-  if (!session?.isAdmin) return jsonError(403, "forbidden", "Apenas administradores podem convidar.");
+  if (!session?.isAdmin) return jsonError(403, "forbidden", "Apenas administradores podem cadastrar a equipe.");
 
-  const parsed = staffInviteSchema.safeParse(await request.json().catch(() => null));
+  const parsed = staffCreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return jsonError(400, "invalid_input", parsed.error.issues[0]?.message ?? "Dados inválidos.");
   }
@@ -25,30 +28,32 @@ export async function POST(request: NextRequest) {
   if ((input.roles.includes("admin") || input.roles.includes("superadmin")) && !session.isSuperadmin) {
     return jsonError(403, "forbidden", "Apenas superadministradores concedem papéis administrativos.");
   }
+  const email = input.email.trim().toLowerCase();
 
   const admin = getAdminSupabase();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin;
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
-    redirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
   });
-  if (inviteError || !invited.user) {
-    return jsonError(409, "invite_failed", "Não foi possível convidar este e-mail. Ele pode já estar cadastrado.");
+  if (createError || !created.user) {
+    const exists = createError?.status === 422 || /already/i.test(createError?.message ?? "");
+    return exists
+      ? jsonError(409, "already_registered", "Este e-mail já tem uma conta.")
+      : jsonError(500, "create_failed", "Não foi possível criar a conta agora. Tente novamente.");
   }
 
   const supabase = await getServerSupabase();
   const { error } = await supabase.rpc("admin_register_staff", {
-    p_user_id: invited.user.id,
-    p_full_name: input.fullName,
-    p_display_name: input.displayName,
-    p_professional_title: input.professionalTitle,
-    p_professional_registry: input.professionalRegistry,
+    p_user_id: created.user.id,
+    p_display_name: input.displayName || displayNameFromEmail(email),
     p_roles: input.roles,
   });
   if (error) {
-    // Desfaz o convite para não deixar usuário órfão no Auth.
-    await admin.auth.admin.deleteUser(invited.user.id);
-    return jsonError(400, "register_failed", "Convite cancelado: dados do profissional inválidos.");
+    // Desfaz a conta para não deixar usuário órfão no Auth.
+    await admin.auth.admin.deleteUser(created.user.id);
+    return jsonError(400, "register_failed", "Não foi possível registrar o profissional. Nada foi criado.");
   }
 
-  return NextResponse.json({ ok: true, userId: invited.user.id });
+  return NextResponse.json({ ok: true, userId: created.user.id });
 }

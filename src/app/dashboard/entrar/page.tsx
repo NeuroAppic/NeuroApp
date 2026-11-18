@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Logo } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
 import { StaffLoginForm } from "@/features/dashboard/staff-login-form";
@@ -25,11 +24,8 @@ export default async function StaffLoginPage({ searchParams }: PageProps<"/dashb
           </p>
         )}
         <StaffLoginForm />
-        <p className="mt-6 border-t border-border pt-4 text-center text-sm">
-          É psicólogo(a) e ainda não tem cadastro?{" "}
-          <Link href="/dashboard/cadastro" className="font-semibold text-primary underline underline-offset-4">
-            Cadastre-se
-          </Link>
+        <p className="mt-6 border-t border-border pt-4 text-center text-sm text-foreground-muted">
+          Contas de profissionais são criadas pela administração do serviço.
         </p>
       </Card>
     </main>

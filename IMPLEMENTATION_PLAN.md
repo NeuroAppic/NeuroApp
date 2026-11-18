@@ -1,6 +1,6 @@
 # Plano de implementação — Acolher
 
-Atualizado em 06/11/2026.
+Atualizado em 18/11/2026.
 
 ## Estado das fases
 
@@ -9,7 +9,7 @@ Atualizado em 06/11/2026.
 | 1. Fundação (arquitetura, design system, Supabase, migrações, auth) | Implementada |
 | 2. Portal público (início, navegação, configurações sensoriais, chat) | Implementada |
 | 3. IA funcional (provedores, prompt, mensagens rápidas, segurança, indisponibilidade) | Implementada; adaptador OpenAI testado com a API simulada; **chave OpenAI válida, mas a conta está sem créditos — nenhuma resposta real ainda** |
-| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência, autocadastro de psicólogos) | Implementada; Realtime, transferência e autocadastro **verificados contra o Supabase real**; painel do psicólogo verificado com dois navegadores; telas de administrador ainda não exercitadas |
+| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência, contas criadas pelo administrador) | Implementada; Realtime e transferência **verificados contra o Supabase real**; cadastro pelo administrador e painel do psicólogo verificados com navegadores |
 | 5. Autorregulação (sons, upload, 5 jogos) | Implementada |
 | 6. Finalização (privacidade, métricas, testes, docs) | Parcial (ver pendências) |
 
@@ -21,10 +21,9 @@ Atualizado em 06/11/2026.
 - **Supabase real (projeto NeuroApp)**: migrações e seed aplicados; `scripts/smoke-supabase.mjs` passou 17/17
   (canais Realtime privados, intruso recusado, transferência, resposta atrasada da IA descartada, fila sem conteúdo);
   E2E do chat com visitante anônimo passou 6/6 (desktop e celular). Dados de teste removidos ao final.
-- Modo de teste `STAFF_OPEN_SIGNUP=true`: cadastro de psicólogo só com e-mail e senha, acesso imediato
-  (verificado contra o Supabase real). **Desligar antes de atender pessoas reais.**
-- Autocadastro de psicólogo (`/dashboard/cadastro`): conta nasce pendente, nunca administrativa;
-  smoke test real 21/21; testes de banco do gatilho; testes do formulário.
+- Contas de psicólogos criadas pelo administrador (e-mail e senha, sem CRP nem validação),
+  migração `20261118000100_direct_staff_accounts` aplicada no Supabase real; autocadastro removido.
+- Provedor Gemini (`@google/genai` 2.32.0) com filtros de segurança calibrados; testado com a API simulada.
 - `npm run test:db`: 26 testes em PostgreSQL 17 (PGlite) com stubs de auth/realtime/storage: usuário não lê
   conversa de terceiros; admin sem papel clínico não lê conteúdo; psicólogo pendente bloqueado; duplo
   "assumir" → `already_claimed`; IA atrasada descartada após transferência; idempotência; escalonamento
@@ -54,7 +53,7 @@ Atualizado em 06/11/2026.
 
 ## Pendências (não concluídas)
 
-- Ainda não exercitado no Supabase real: upload de áudio (Storage), e-mails (confirmação de cadastro,
+- Ainda não exercitado no Supabase real: upload de áudio (Storage), e-mails (
   convite, recuperação), MFA, telas de administrador e exclusão de conta pela interface.
 - Excluir no Auth um profissional com atendimento ativo falha (a regra `human_active_requires_staff` impede).
   Use "Desativar acesso" no painel, que devolve os atendimentos à fila.

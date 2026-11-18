@@ -3,7 +3,7 @@ import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { cache } from "react";
 import { getServerSupabase } from "@/lib/supabase/server";
-import type { CredentialStatus, StaffRole } from "@/types/domain";
+import type { StaffRole } from "@/types/domain";
 
 /**
  * Camada de acesso a dados de autenticação (DAL).
@@ -27,7 +27,6 @@ export interface StaffSession {
   displayName: string;
   fullName: string;
   roles: StaffRole[];
-  credentialStatus: CredentialStatus;
   isClinician: boolean;
   isAdmin: boolean;
   isSuperadmin: boolean;
@@ -43,7 +42,7 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
   const [{ data: profile }, { data: roles }, aal] = await Promise.all([
     supabase
       .from("staff_profiles")
-      .select("display_name, full_name, credential_status, is_active")
+      .select("display_name, full_name, is_active")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.from("staff_roles").select("role").eq("user_id", user.id),
@@ -55,15 +54,14 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
   const roleList = (roles ?? []).map((r) => r.role as StaffRole);
   if (roleList.length === 0) return null;
 
-  const credentialStatus = profile.credential_status as CredentialStatus;
   return {
     userId: user.id,
     email: user.email ?? null,
     displayName: profile.display_name as string,
     fullName: profile.full_name as string,
     roles: roleList,
-    credentialStatus,
-    isClinician: roleList.includes("psychologist") && credentialStatus === "verified",
+    // Conta ativa com papel de psicólogo atende (mesma regra de public.is_clinician).
+    isClinician: roleList.includes("psychologist"),
     isAdmin: roleList.includes("admin") || roleList.includes("superadmin"),
     isSuperadmin: roleList.includes("superadmin"),
     aal: (aal?.currentLevel as "aal1" | "aal2" | null | undefined) ?? null,

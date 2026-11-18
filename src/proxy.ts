@@ -34,8 +34,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isDashboard = pathname.startsWith("/dashboard");
-  // Páginas do painel abertas sem login: entrar e autocadastro de profissional.
-  const isPublic = ["/dashboard/entrar", "/dashboard/cadastro"].some(
+  // Única página do painel aberta sem login (contas da equipe são criadas pelo administrador).
+  const isPublic = ["/dashboard/entrar"].some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 

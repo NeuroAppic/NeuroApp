@@ -6,7 +6,7 @@
  *
  * - Se o e-mail ainda não tem conta, a senha é digitada aqui (não aparece na tela)
  *   e a conta é criada já confirmada — não depende de envio de e-mail.
- * - Se o e-mail já tem conta (ex.: criada em /dashboard/cadastro), ela é promovida.
+ * - Se o e-mail já tem conta, ela é promovida.
  * - O banco recusa a operação se já existir um superadministrador
  *   (função bootstrap_superadmin), então não serve para escalar privilégios.
  */

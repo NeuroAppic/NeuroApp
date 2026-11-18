@@ -4,7 +4,7 @@ import { shuffle, swap } from "@/features/games/color-sort";
 import { applyTool, validateGarden, type Plot } from "@/features/games/garden";
 import { fillBrown, fillPink, generateNoise } from "@/features/sounds/noise";
 import { parsePreferences, resolveTheme } from "@/lib/preferences/preferences";
-import { cleanText, postMessageSchema, staffInviteSchema, validateAudioFile } from "@/lib/validation/schemas";
+import { cleanText, displayNameFromEmail, postMessageSchema, staffCreateSchema, validateAudioFile } from "@/lib/validation/schemas";
 
 describe("validação de entradas", () => {
   it("remove caracteres de controle e limita o tamanho da mensagem", () => {
@@ -16,10 +16,22 @@ describe("validação de entradas", () => {
     expect(postMessageSchema.safeParse({ content: "Oi", clientMessageId: "nao-e-uuid" }).success).toBe(false);
   });
 
-  it("exige registro profissional para psicólogos", () => {
-    const base = { email: "a@b.com", fullName: "Ana Souza", displayName: "Ana", roles: ["psychologist"] as const };
-    expect(staffInviteSchema.safeParse({ ...base, roles: [...base.roles] }).success).toBe(false);
-    expect(staffInviteSchema.safeParse({ ...base, roles: [...base.roles], professionalRegistry: "CRP 06/1234" }).success).toBe(true);
+  it("cadastro de psicólogo pelo administrador pede só e-mail e senha", () => {
+    const ok = staffCreateSchema.safeParse({ email: "ana@gmail.com", password: "12345678" });
+    expect(ok.success && ok.data).toEqual({ email: "ana@gmail.com", password: "12345678", displayName: "", roles: ["psychologist"] });
+    expect(staffCreateSchema.safeParse({ email: "nao-e-email", password: "12345678" }).success).toBe(false);
+    expect(staffCreateSchema.safeParse({ email: "ana@gmail.com", password: "123" }).success).toBe(false);
+    expect(staffCreateSchema.safeParse({ email: "ana@gmail.com", password: "12345678", displayName: "A" }).success).toBe(false);
+    // Não existe mais campo de registro profissional (CRP).
+    expect(Object.keys(staffCreateSchema.shape)).not.toContain("professionalRegistry");
+  });
+
+  it.each([
+    ["ana.souza92@gmail.com", "Ana Souza"],
+    ["joao_pedro@gmail.com", "Joao Pedro"],
+    ["x@gmail.com", "Profissional"],
+  ])("nome exibido a partir do e-mail: %s → %s", (email, name) => {
+    expect(displayNameFromEmail(email)).toBe(name);
   });
 
   it("valida tipo e tamanho de áudio", () => {

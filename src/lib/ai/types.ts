@@ -25,7 +25,7 @@ export type StreamEvent =
   | { type: "done"; usage: ChatUsage; stopReason: string | null; model: string };
 
 export interface ChatProvider {
-  readonly name: "anthropic" | "openai" | "mock";
+  readonly name: "anthropic" | "openai" | "gemini" | "mock";
   readonly model: string;
   /** True quando as respostas são simuladas (sem IA real). Exibido na interface. */
   readonly isSimulated: boolean;
