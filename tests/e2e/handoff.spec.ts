@@ -1,0 +1,155 @@
+import { createServerClient } from "@supabase/ssr";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { expect, test, type BrowserContext } from "@playwright/test";
+
+/**
+ * Atendimento humano de ponta a ponta, com dois navegadores ao mesmo tempo:
+ * visitante no portal e psicóloga no painel. Usa uma conta descartável criada
+ * pela chave secreta e apagada no final. Ative com E2E_SUPABASE=1.
+ */
+test.skip(process.env.E2E_SUPABASE !== "1", "Requer Supabase (E2E_SUPABASE=1).");
+test.use({ actionTimeout: 20_000 });
+test.describe.configure({ timeout: 90_000 });
+
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // variáveis podem vir do ambiente
+}
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+const secret = process.env.SUPABASE_SECRET_KEY ?? "";
+
+/** Abre a sessão pela API e coloca os cookies no navegador da psicóloga. */
+async function signInContext(context: BrowserContext, email: string, password: string) {
+  const jar: { name: string; value: string }[] = [];
+  const client = createServerClient(url, publishable, {
+    cookies: {
+      getAll: () => jar,
+      setAll: (cookies) => {
+        for (const c of cookies) {
+          const i = jar.findIndex((x) => x.name === c.name);
+          if (i >= 0) jar.splice(i, 1);
+          if (c.value) jar.push({ name: c.name, value: c.value });
+        }
+      },
+    },
+  });
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  await context.addCookies(jar.map((c) => ({ ...c, domain: "localhost", path: "/", sameSite: "Lax" as const })));
+}
+
+test.describe("atendimento humano", () => {
+  let admin: SupabaseClient;
+  let staffId = "";
+  let email = "";
+  let password = "";
+  const visitorIds: string[] = [];
+
+  test.beforeEach(async () => {
+    admin = createClient(url, secret, { auth: { persistSession: false } });
+    email = `acolher-teste-e2e-${crypto.randomUUID().slice(0, 8)}@example.com`;
+    password = `T${crypto.randomUUID()}!`;
+    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    if (error || !data.user) throw error;
+    staffId = data.user.id;
+    await admin.from("staff_profiles").insert({
+      user_id: staffId,
+      full_name: "Teste E2E",
+      display_name: "Teste E2E",
+      credential_status: "verified",
+    });
+    await admin.from("staff_roles").insert({ user_id: staffId, role: "psychologist" });
+  });
+
+  test.afterEach(async () => {
+    for (const id of visitorIds.splice(0)) {
+      await admin.from("conversations").delete().eq("user_id", id);
+      await admin.from("ai_usage").delete().eq("user_id", id);
+      await admin.auth.admin.deleteUser(id);
+    }
+    await admin.from("audit_logs").delete().eq("actor_id", staffId);
+    await admin.auth.admin.deleteUser(staffId);
+  });
+
+  test("psicóloga assume, conversa em tempo real e finaliza", async ({ browser }) => {
+    const visitorContext = await browser.newContext();
+    const staffContext = await browser.newContext();
+    const visitor = await visitorContext.newPage();
+    const staff = await staffContext.newPage();
+    await signInContext(staffContext, email, password);
+
+    // Psicóloga abre a central e fica disponível.
+    await staff.goto("/dashboard/atendimentos");
+    await expect(staff.getByRole("heading", { name: "Atendimentos" })).toBeVisible();
+    await expect(staff.getByText("Atualização em tempo real ativa")).toBeVisible({ timeout: 20_000 });
+    await staff.getByRole("button", { name: "Ficar disponível" }).click();
+    await expect(staff.getByRole("button", { name: "Ficar disponível" })).toBeHidden();
+
+    // Visitante pede para falar com uma pessoa.
+    await visitor.goto("/conversar");
+    const started = visitor.waitForResponse((r) => r.url().endsWith("/api/conversations") && r.request().method() === "POST");
+    await visitor.getByRole("button", { name: "Entendi, quero começar" }).click();
+    const { conversationId } = (await (await started).json()) as { conversationId: string };
+    await expect(visitor.getByRole("heading", { name: "Assistente virtual (IA)" })).toBeVisible({ timeout: 20_000 });
+    const { data: own } = await admin.from("conversations").select("user_id").eq("id", conversationId).single();
+    visitorIds.push(own?.user_id as string);
+    await visitor.getByRole("button", { name: "Quero falar com uma pessoa" }).last().click();
+    await expect(visitor.getByText(/Seu pedido está na fila/)).toBeVisible({ timeout: 15_000 });
+
+    // A fila atualiza sozinha, sem recarregar a página.
+    // Sempre a conversa criada por este teste: a fila pode ter conversas de pessoas reais.
+    const queueItem = staff.locator(`[data-conversation-id="${conversationId}"]`);
+    await expect(queueItem).toBeVisible({ timeout: 15_000 });
+    await expect(staff).toHaveTitle(/^\(\d+\) Atendimentos/);
+    await queueItem.click();
+    await staff.getByRole("button", { name: "Assumir atendimento" }).click();
+
+    // A pessoa é avisada de que agora fala com uma pessoa.
+    await expect(visitor.getByText(/Você está conversando com uma pessoa/)).toBeVisible({ timeout: 15_000 });
+    await expect(visitor.getByRole("log").getByText(/Um profissional assumiu esta conversa/)).toBeVisible();
+
+    // Mensagens nos dois sentidos, em tempo real.
+    await staff.getByLabel("Resposta").fill("Olá, estou aqui com você.");
+    await staff.getByRole("button", { name: "Enviar", exact: true }).click();
+    await expect(visitor.getByRole("log").getByText("Olá, estou aqui com você.")).toBeVisible({ timeout: 15_000 });
+
+    await visitor.getByLabel("Sua mensagem").fill("Obrigado por vir.");
+    await visitor.getByRole("button", { name: "Enviar mensagem" }).click();
+    await expect(staff.getByRole("list", { name: "Mensagens" }).getByText("Obrigado por vir.")).toBeVisible({ timeout: 15_000 });
+
+    // A IA não responde durante o atendimento humano.
+    await visitor.waitForTimeout(2500);
+    await expect(visitor.getByText("O assistente está escrevendo…")).toBeHidden();
+    const { count } = await admin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("sender", "ai")
+      .eq("content", "Obrigado por vir.");
+    expect(count).toBe(0);
+
+    // Finalizar encerra para os dois lados.
+    await staff.getByRole("button", { name: "Finalizar" }).click();
+    await expect(visitor.getByText("Esta conversa foi encerrada.")).toBeVisible({ timeout: 15_000 });
+
+    await visitorContext.close();
+    await staffContext.close();
+  });
+
+  test("psicóloga vê o painel e a sua conta", async ({ browser }) => {
+    const context = await browser.newContext();
+    await signInContext(context, email, password);
+    const page = await context.newPage();
+
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/dashboard\/atendimentos$/);
+    await page.goto("/dashboard/conta");
+    await expect(page.getByRole("heading", { name: "Minha conta" })).toBeVisible();
+    // Sem papel administrativo, as páginas de gestão devolvem para o início.
+    await page.goto("/dashboard/equipe");
+    await expect(page).toHaveURL(/\/dashboard\/atendimentos$/);
+    await context.close();
+  });
+});

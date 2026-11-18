@@ -9,7 +9,7 @@ Atualizado em 06/11/2026.
 | 1. Fundação (arquitetura, design system, Supabase, migrações, auth) | Implementada |
 | 2. Portal público (início, navegação, configurações sensoriais, chat) | Implementada |
 | 3. IA funcional (provedores, prompt, mensagens rápidas, segurança, indisponibilidade) | Implementada; adaptador OpenAI testado com a API simulada; **chave OpenAI válida, mas a conta está sem créditos — nenhuma resposta real ainda** |
-| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência, autocadastro de psicólogos) | Implementada; Realtime, transferência e autocadastro **verificados contra o Supabase real**; telas logadas do painel ainda não exercitadas com equipe real |
+| 4. Atendimento profissional (painel, papéis, fila, Realtime, transferência, autocadastro de psicólogos) | Implementada; Realtime, transferência e autocadastro **verificados contra o Supabase real**; painel do psicólogo verificado com dois navegadores; telas de administrador ainda não exercitadas |
 | 5. Autorregulação (sons, upload, 5 jogos) | Implementada |
 | 6. Finalização (privacidade, métricas, testes, docs) | Parcial (ver pendências) |
 
@@ -32,8 +32,10 @@ Atualizado em 06/11/2026.
   Esses testes encontraram e corrigiram um bug real de ordem de transição. A aplicação no Supabase real revelou
   outro: `close_conversation` não bloqueava quem não era dono quando a conversa não tinha profissional
   (comparação com NULL) — corrigido, com teste de regressão.
-- `npm test` (unitários + componentes + banco): 93 testes.
-- `npm run test:e2e` com `E2E_SUPABASE=1`: 40/40 (portal, entrada de profissionais e chat; desktop e celular).
+- `npm run test:all` (unitários + componentes + banco): 101 testes.
+- `npm run test:e2e` com `E2E_SUPABASE=1`: 44/44 (portal, entrada de profissionais, chat e atendimento
+  humano com dois navegadores: fila em tempo real, assumir, mensagens nos dois sentidos, IA em silêncio,
+  finalizar; desktop e celular).
 
 ## Decisões arquiteturais
 
@@ -53,9 +55,10 @@ Atualizado em 06/11/2026.
 ## Pendências (não concluídas)
 
 - Ainda não exercitado no Supabase real: upload de áudio (Storage), e-mails (confirmação de cadastro,
-  convite, recuperação), MFA, telas logadas do painel com uma equipe real e exclusão de conta pela interface.
+  convite, recuperação), MFA, telas de administrador e exclusão de conta pela interface.
+- Excluir no Auth um profissional com atendimento ativo falha (a regra `human_active_requires_staff` impede).
+  Use "Desativar acesso" no painel, que devolve os atendimentos à fila.
 - Respostas reais da IA: adicionar créditos na conta OpenAI e mudar `AI_PROVIDER=openai`.
-- Ainda não há administrador no projeto: rodar `scripts/create-superadmin.mjs`.
 - As migrações foram aplicadas pela integração MCP (histórico com nomes próprios). Antes de usar
   `supabase db push`, alinhar o histórico com `supabase migration repair`.
 - Testar provedores Anthropic/OpenAI com credenciais válidas (critério de aceite ainda não cumprido).

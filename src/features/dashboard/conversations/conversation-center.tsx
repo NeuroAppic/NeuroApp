@@ -163,6 +163,7 @@ function QueueItem({ item, active, mine, onSelect }: { item: QueueConversation; 
       type="button"
       onClick={onSelect}
       aria-current={active ? "true" : undefined}
+      data-conversation-id={item.id}
       className="flex w-full flex-col gap-1.5 p-3 text-left hover:bg-surface-muted aria-[current=true]:bg-primary-soft"
     >
       <span className="flex flex-wrap items-center gap-1.5">

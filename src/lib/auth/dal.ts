@@ -40,14 +40,15 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
   if (!user || user.is_anonymous) return null;
   const supabase = await getServerSupabase();
 
-  const [{ data: profile }, { data: roles }, { data: aal }] = await Promise.all([
+  const [{ data: profile }, { data: roles }, aal] = await Promise.all([
     supabase
       .from("staff_profiles")
       .select("display_name, full_name, credential_status, is_active")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.from("staff_roles").select("role").eq("user_id", user.id),
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    // O nível da sessão só importa quando a MFA é exigida.
+    staffMfaRequired() ? supabase.auth.mfa.getAuthenticatorAssuranceLevel().then((r) => r.data) : null,
   ]);
 
   if (!profile || !profile.is_active) return null;
