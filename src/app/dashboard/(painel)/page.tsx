@@ -1,7 +1,8 @@
 import { AlertTriangle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Notice } from "@/components/ui/notice";
-import { BarChart, formatNumber, type BarDatum } from "@/features/dashboard/bar-chart";
+import { BarChart, type BarDatum } from "@/features/dashboard/bar-chart";
+import { formatNumber } from "@/lib/format";
 import { getStaffSession } from "@/lib/auth/dal";
 import { getServerSupabase } from "@/lib/supabase/server";
 

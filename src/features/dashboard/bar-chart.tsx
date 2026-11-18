@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { formatNumber } from "@/lib/format";
 
 export interface BarDatum {
   key: string;
@@ -129,9 +130,4 @@ function niceCeil(value: number): number {
   const fraction = value / exponent;
   const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
   return Math.max(2, nice * exponent);
-}
-
-const numberFormat = new Intl.NumberFormat("pt-BR");
-export function formatNumber(value: number): string {
-  return numberFormat.format(value);
 }

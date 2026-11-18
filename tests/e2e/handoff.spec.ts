@@ -160,6 +160,10 @@ test.describe("atendimento humano", () => {
     const adminContext = await browser.newContext();
     await signInContext(adminContext, email, password);
     const adminPage = await adminContext.newPage();
+    // A visão geral (só administradores) abre sem erro de servidor.
+    await adminPage.goto("/dashboard");
+    await expect(adminPage.getByRole("heading", { name: "Visão geral" })).toBeVisible();
+    await expect(adminPage.getByText("Pessoas ativas")).toBeVisible();
     await adminPage.goto("/dashboard/equipe");
 
     const newEmail = `acolher-teste-novo-${crypto.randomUUID().slice(0, 8)}@example.com`;
