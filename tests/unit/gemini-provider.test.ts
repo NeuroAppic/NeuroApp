@@ -21,7 +21,10 @@ function chunk(text: string | null, extra: Chunk = {}): Chunk {
   };
 }
 
-function fakeModels(responses: (Chunk[] | Error)[]): GeminiModels & { calls: GenerateContentParameters[] } {
+/** Resposta que nunca começa (servidor "travado"); só termina quando a tentativa é cancelada. */
+const STALL = Symbol("stall");
+
+function fakeModels(responses: (Chunk[] | Error | typeof STALL)[]): GeminiModels & { calls: GenerateContentParameters[] } {
   const calls: GenerateContentParameters[] = [];
   return {
     calls,
@@ -30,6 +33,13 @@ function fakeModels(responses: (Chunk[] | Error)[]): GeminiModels & { calls: Gen
       const next = responses.shift();
       if (!next) throw new Error("sem resposta simulada");
       if (next instanceof Error) throw next;
+      if (next === STALL) {
+        const signal = params.config?.abortSignal;
+        return (async function* () {
+          await new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+          yield undefined as never;
+        })();
+      }
       return (async function* () {
         for (const c of next) yield c as never;
       })();
@@ -135,11 +145,46 @@ describe("adaptador Gemini", () => {
     expect(events[0]).toEqual({ type: "text", text: "Estou aqui." });
   });
 
-  it("sem modelo reserva, repete o mesmo modelo; erro persistente vira indisponível", async () => {
-    const models = fakeModels([apiError(503, "high demand"), apiError(503, "high demand")]);
+  it("sem modelo reserva, repete o mesmo modelo; após 3 tentativas o erro vira indisponível", async () => {
+    const busy = () => apiError(503, "high demand");
+    const models = fakeModels([busy(), busy(), busy()]);
     const error = await collect(new GeminiProvider({ apiKey: "x", model: "m", models, retryDelayMs: 0 })).catch((e: unknown) => e);
-    expect(models.calls.map((c) => c.model)).toEqual(["m", "m"]);
+    expect(models.calls.map((c) => c.model)).toEqual(["m", "m", "m"]);
     expect((error as AIProviderError).kind).toBe("unavailable");
+  });
+
+  it("principal e reserva sobrecarregados: a terceira tentativa ainda responde", async () => {
+    const models = fakeModels([apiError(503, "high demand"), apiError(503, "high demand"), [chunk("Oi, estou aqui.")]]);
+    const events = await collect(
+      new GeminiProvider({ apiKey: "x", model: "principal", fallbackModel: "reserva", models, retryDelayMs: 0 }),
+    );
+    expect(models.calls.map((c) => c.model)).toEqual(["principal", "reserva", "reserva"]);
+    expect(events[0]).toEqual({ type: "text", text: "Oi, estou aqui." });
+  });
+
+  it("modelo que não começa a responder é abandonado e o reserva assume", async () => {
+    const models = fakeModels([STALL, [chunk("Estou aqui com você.")]]);
+    const events = await collect(
+      new GeminiProvider({
+        apiKey: "x",
+        model: "principal",
+        fallbackModel: "reserva",
+        models,
+        retryDelayMs: 0,
+        firstChunkTimeoutMs: 20,
+      }),
+    );
+    expect(models.calls.map((c) => c.model)).toEqual(["principal", "reserva"]);
+    expect(events[0]).toEqual({ type: "text", text: "Estou aqui com você." });
+  });
+
+  it("se todas as tentativas travam, devolve tempo esgotado (a pessoa pode tentar de novo)", async () => {
+    const models = fakeModels([STALL, STALL, STALL]);
+    const error = await collect(
+      new GeminiProvider({ apiKey: "x", model: "m", models, retryDelayMs: 0, firstChunkTimeoutMs: 20 }),
+    ).catch((e: unknown) => e);
+    expect(models.calls).toHaveLength(3);
+    expect((error as AIProviderError).kind).toBe("timeout");
   });
 
   it.each([

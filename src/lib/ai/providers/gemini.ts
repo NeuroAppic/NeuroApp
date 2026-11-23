@@ -57,7 +57,14 @@ const THINKING_LEVELS: Record<GeminiThinkingLevel, ThinkingLevel> = {
 };
 
 /** Respostas 503 (servidor sobrecarregado) costumam passar em segundos. */
-const RETRY_DELAY_MS = 1_500;
+const RETRY_DELAY_MS = 800;
+/**
+ * Se o modelo não começa a responder nesse tempo, desiste dele e tenta o
+ * próximo (o Google às vezes "trava" em vez de devolver 503). Com 3 tentativas,
+ * o pior caso fica abaixo do limite geral de AI_TIMEOUT_MS (45 s).
+ */
+const FIRST_CHUNK_TIMEOUT_MS = 12_000;
+const MAX_ATTEMPTS = 3;
 
 export interface GeminiProviderOptions {
   apiKey: string;
@@ -68,6 +75,8 @@ export interface GeminiProviderOptions {
   fallbackModel?: string;
   /** Espera antes da nova tentativa (0 nos testes). */
   retryDelayMs?: number;
+  /** Tempo máximo até o primeiro pedaço da resposta, por tentativa. */
+  firstChunkTimeoutMs?: number;
   /** Injetado nos testes; em produção usa o SDK oficial @google/genai. */
   models?: GeminiModels;
 }
@@ -81,12 +90,14 @@ export class GeminiProvider implements ChatProvider {
   private readonly thinkingLevel?: GeminiThinkingLevel;
   private readonly fallbackModel?: string;
   private readonly retryDelayMs: number;
+  private readonly firstChunkTimeoutMs: number;
 
   constructor(options: GeminiProviderOptions) {
     this.model = options.model;
     this.thinkingLevel = options.thinkingLevel;
     this.fallbackModel = options.fallbackModel;
     this.retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
+    this.firstChunkTimeoutMs = options.firstChunkTimeoutMs ?? FIRST_CHUNK_TIMEOUT_MS;
     this.models = options.models ?? new GoogleGenAI({ apiKey: options.apiKey }).models;
   }
 
@@ -110,12 +121,12 @@ export class GeminiProvider implements ChatProvider {
     };
 
     try {
-      const stream = await this.open(params, request.signal);
+      const { first, stream } = await this.open(params, request.signal);
 
       let usage = { inputTokens: 0, outputTokens: 0 };
       let finishReason: FinishReason | undefined;
       let model = this.model;
-      for await (const chunk of stream) {
+      for await (const chunk of withFirst(first, stream)) {
         if (request.signal.aborted) throw new AIProviderError("Geração cancelada.", "timeout");
         if (chunk.promptFeedback?.blockReason) {
           throw new AIProviderError("O provedor bloqueou a mensagem.", "refused");
@@ -144,22 +155,56 @@ export class GeminiProvider implements ChatProvider {
   }
 
   /**
-   * Abre o streaming. Se o servidor estiver sobrecarregado (nada foi enviado
-   * ainda), tenta uma vez de novo — com o modelo reserva, quando configurado.
+   * Abre o streaming e espera o primeiro pedaço. Se o servidor estiver
+   * sobrecarregado (5xx) ou demorar demais para começar, tenta de novo — até
+   * 3 vezes (MAX_ATTEMPTS), alternando com o modelo reserva quando configurado.
+   * Nada foi mostrado à pessoa até o primeiro pedaço, então repetir é seguro.
    */
   private async open(
     params: GenerateContentParameters,
     signal: AbortSignal,
-  ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    try {
-      return await this.models.generateContentStream(params);
-    } catch (error) {
-      const busy = error instanceof ApiError && (error.status === 503 || error.status === 500);
-      if (!busy || signal.aborted) throw error;
-      await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs));
-      return this.models.generateContentStream({ ...params, model: this.fallbackModel ?? params.model });
+  ): Promise<{ first: IteratorResult<GenerateContentResponse>; stream: AsyncGenerator<GenerateContentResponse> }> {
+    const fallback = this.fallbackModel ?? this.model;
+    // Principal, depois o reserva (mais leve e, na prática, mais disponível).
+    const plan = [this.model, fallback, fallback].slice(0, MAX_ATTEMPTS);
+    for (let attempt = 0; ; attempt++) {
+      // Cada tentativa tem o próprio cancelamento, ligado ao da requisição.
+      const controller = new AbortController();
+      const forward = () => controller.abort();
+      signal.addEventListener("abort", forward, { once: true });
+      let stalled = false;
+      const timer = setTimeout(() => {
+        stalled = true;
+        controller.abort();
+      }, this.firstChunkTimeoutMs);
+      try {
+        const stream = await this.models.generateContentStream({
+          ...params,
+          model: plan[attempt]!,
+          config: { ...params.config, abortSignal: controller.signal },
+        });
+        const first = await stream.next();
+        clearTimeout(timer);
+        return { first, stream };
+      } catch (error) {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", forward);
+        if (signal.aborted) throw error;
+        const busy = stalled || (error instanceof ApiError && error.status >= 500);
+        if (!busy || attempt + 1 >= plan.length) {
+          throw stalled ? new AIProviderError("O provedor demorou para responder.", "timeout", error) : error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * (attempt + 1)));
+      }
     }
   }
+}
+
+/** Devolve o primeiro pedaço já lido e continua com o resto do streaming. */
+async function* withFirst<T>(first: IteratorResult<T>, rest: AsyncGenerator<T>): AsyncGenerator<T> {
+  if (first.done) return;
+  yield first.value;
+  yield* rest;
 }
 
 export function normalizeGeminiError(error: unknown, signal: AbortSignal): unknown {
