@@ -88,14 +88,15 @@ test.describe("atendimento humano", () => {
     await expect(staff.getByRole("button", { name: "Ficar disponível" })).toBeHidden();
 
     // Visitante pede para falar com uma pessoa.
-    await visitor.goto("/conversar");
+    await visitor.goto("/");
+    await expect(visitor.getByRole("heading", { name: /Assistente virtual/ })).toBeVisible({ timeout: 20_000 });
+    await expect(visitor.getByLabel("Sua mensagem")).toBeEnabled({ timeout: 20_000 });
     const started = visitor.waitForResponse((r) => r.url().endsWith("/api/conversations") && r.request().method() === "POST");
-    await visitor.getByRole("button", { name: "Entendi, quero começar" }).click();
+    // Um toque: a conversa começa junto com o pedido.
+    await visitor.getByRole("button", { name: "Falar com uma pessoa" }).click();
     const { conversationId } = (await (await started).json()) as { conversationId: string };
-    await expect(visitor.getByRole("heading", { name: "Assistente virtual (IA)" })).toBeVisible({ timeout: 20_000 });
     const { data: own } = await admin.from("conversations").select("user_id").eq("id", conversationId).single();
     visitorIds.push(own?.user_id as string);
-    await visitor.getByRole("button", { name: "Quero falar com uma pessoa" }).last().click();
     await expect(visitor.getByText(/Seu pedido está na fila/)).toBeVisible({ timeout: 15_000 });
 
     // A fila atualiza sozinha, sem recarregar a página.

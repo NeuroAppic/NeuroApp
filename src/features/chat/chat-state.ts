@@ -4,7 +4,11 @@
 import type { ChatStreamEvent } from "@/lib/chat/protocol";
 import type { ChatMessage, ConversationStatus, MessageInputSource, RiskLevel } from "@/types/domain";
 
-export type Phase = "checking" | "consent" | "starting" | "ready" | "unavailable" | "start_failed";
+/**
+ * "new": ainda não há conversa — a tela já mostra o campo de mensagem; a
+ * conversa (sessão anônima + aceite do aviso) começa no primeiro envio.
+ */
+export type Phase = "checking" | "new" | "starting" | "ready" | "unavailable" | "start_failed";
 export type Connection = "connecting" | "live" | "reconnecting" | "offline";
 
 export interface PendingMessage {
@@ -53,10 +57,10 @@ export const initialChatState: ChatState = {
 };
 
 export type ChatAction =
-  | { type: "needs_consent" }
+  | { type: "fresh" }
   | { type: "unavailable" }
-  | { type: "starting" }
-  | { type: "start_failed" }
+  | { type: "starting"; first?: { clientId: string; content: string; source: MessageInputSource } }
+  | { type: "start_failed"; clientId?: string }
   | {
       type: "loaded";
       conversationId: string;
@@ -78,6 +82,8 @@ export type ChatAction =
   | { type: "retrying_ai" }
   | { type: "notice"; message: string | null }
   | { type: "dismiss_safety" };
+
+export const START_FAILED_MESSAGE = "Não foi possível começar agora. Verifique a conexão e tente de novo.";
 
 const RISK_ORDER: Record<RiskLevel, number> = { none: 0, attention: 1, high: 2, critical: 3 };
 
@@ -121,14 +127,30 @@ function withMessage(state: ChatState, message: ChatMessage): ChatState {
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case "needs_consent":
-      return { ...initialChatState, phase: "consent" };
+    case "fresh":
+      return { ...initialChatState, phase: "new" };
     case "unavailable":
       return { ...state, phase: "unavailable" };
     case "starting":
-      return { ...state, phase: "starting" };
+      // A primeira mensagem aparece na hora, enquanto a conversa é criada.
+      return {
+        ...state,
+        // Se a conversa já existe (chamada atrasada), não volta a "começando".
+        phase: state.conversationId ? state.phase : "starting",
+        notice: null,
+        pending: action.first
+          ? [...state.pending.filter((p) => p.clientId !== action.first!.clientId), { ...action.first, state: "sending" }]
+          : state.pending,
+      };
     case "start_failed":
-      return { ...state, phase: "start_failed" };
+      return {
+        ...state,
+        phase: "start_failed",
+        notice: action.clientId ? null : START_FAILED_MESSAGE,
+        pending: state.pending.map((p) =>
+          p.clientId === action.clientId ? { ...p, state: "failed", error: START_FAILED_MESSAGE } : p,
+        ),
+      };
     case "loaded": {
       const elevated = RISK_ORDER[action.riskLevel] >= RISK_ORDER.high;
       return {
@@ -139,7 +161,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         stateVersion: action.stateVersion,
         assignedLabel: action.assignedLabel,
         messages: sortMessages(action.messages),
-        pending: state.conversationId === action.conversationId ? state.pending : [],
+        // Mantém a primeira mensagem (ainda sem conversa) e as da mesma conversa.
+        pending: state.conversationId === null || state.conversationId === action.conversationId ? state.pending : [],
         safety: elevated
           ? { level: action.riskLevel, escalated: false, visible: state.safety.visible || state.conversationId !== action.conversationId }
           : state.safety,

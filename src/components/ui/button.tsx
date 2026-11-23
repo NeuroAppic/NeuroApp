@@ -15,7 +15,7 @@ export const buttonVariants = cva(
         lavender: "bg-lavender-soft text-foreground hover:bg-surface-muted",
         ghost: "text-foreground hover:bg-surface-muted",
         danger: "bg-danger-soft text-danger border border-danger/30 hover:bg-surface-muted",
-        link: "text-primary underline underline-offset-4 hover:text-primary-hover px-0 min-h-0",
+        link: "text-accent underline underline-offset-4 hover:text-accent px-0 min-h-0",
       },
       size: {
         sm: "min-h-11 px-3 text-sm [&_svg]:size-4",

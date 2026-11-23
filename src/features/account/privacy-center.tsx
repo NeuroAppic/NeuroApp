@@ -94,7 +94,7 @@ export function PrivacyCenter() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "meus-dados-acolher.json";
+    a.download = "meus-dados-neuro-app.json";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -121,7 +121,7 @@ export function PrivacyCenter() {
           <h2 className="text-xl font-semibold">Você ainda não iniciou uma conversa</h2>
           <p className="mt-1 text-foreground-muted">Nenhum dado seu está guardado. Se você já tem conta, pode entrar.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button asChild><Link href="/conversar">Ir para a conversa</Link></Button>
+            <Button asChild><Link href="/">Ir para a conversa</Link></Button>
             <Button asChild variant="secondary"><Link href="/entrar">Já tenho conta</Link></Button>
           </div>
         </Card>

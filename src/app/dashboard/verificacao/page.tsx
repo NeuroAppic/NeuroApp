@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Logo } from "@/components/layout/logo";
+import Link from "next/link";
+import { LogoBadge } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
 import { MfaChallenge } from "@/features/dashboard/account/mfa-challenge";
 import { getStaffSession } from "@/lib/auth/dal";
@@ -16,7 +17,9 @@ export default async function VerificacaoPage() {
   if (session.aal === "aal2") redirect("/dashboard");
   return (
     <main id="conteudo" className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4">
-      <Logo href="/" />
+      <Link href="/" className="rounded-3xl" aria-label="Neuro App — início">
+        <LogoBadge withTagline={false} size={112} />
+      </Link>
       <Card className="w-full max-w-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold">Verificação em duas etapas</h1>
         <MfaChallenge />

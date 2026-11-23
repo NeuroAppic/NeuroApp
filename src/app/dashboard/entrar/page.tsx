@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Logo } from "@/components/layout/logo";
+import Link from "next/link";
+import { LogoBadge } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
 import { StaffLoginForm } from "@/features/dashboard/staff-login-form";
 
@@ -9,7 +10,9 @@ export default async function StaffLoginPage({ searchParams }: PageProps<"/dashb
   const { motivo } = await searchParams;
   return (
     <main id="conteudo" className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
-      <Logo href="/" />
+      <Link href="/" className="rounded-3xl" aria-label="Neuro App — início">
+        <LogoBadge size={168} />
+      </Link>
       <Card className="w-full max-w-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold">Área da equipe</h1>
         <p className="mt-1 text-foreground-muted">Acesso restrito a profissionais e administradores autorizados.</p>

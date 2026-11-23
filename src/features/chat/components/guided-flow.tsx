@@ -56,7 +56,7 @@ export function GuidedFlow({
   return (
     <section
       aria-labelledby="pergunta-guiada"
-      className="animate-gentle-in border-t border-border bg-lavender-soft/70 px-3 py-4 sm:px-5"
+      className="animate-gentle-in border-t border-border bg-surface-muted/60 px-4 py-4 sm:px-6"
     >
       <div className="mx-auto max-w-2xl">
         <div className="flex items-start justify-between gap-3">
@@ -84,7 +84,7 @@ export function GuidedFlow({
                 key={option.label}
                 type="button"
                 onClick={() => choose(option)}
-                className="min-h-14 rounded-xl border border-border bg-surface px-4 text-lg font-semibold hover:bg-primary-soft"
+                className="min-h-13 rounded-xl border border-border bg-surface px-4 font-semibold hover:bg-primary-soft"
               >
                 {option.label}
               </button>

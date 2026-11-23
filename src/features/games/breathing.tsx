@@ -93,7 +93,7 @@ export function Breathing() {
         <fieldset className="flex flex-wrap justify-center gap-2">
           <legend className="sr-only">Ritmo</legend>
           {RHYTHMS.map((r) => (
-            <label key={r.id} className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border px-4 text-sm font-semibold has-checked:border-primary has-checked:bg-primary-soft has-focus-visible:outline-3 has-focus-visible:outline-focus">
+            <label key={r.id} className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border px-4 text-sm font-semibold has-checked:border-accent has-checked:bg-primary-soft has-focus-visible:outline-3 has-focus-visible:outline-focus">
               <input type="radio" name="ritmo" className="sr-only" checked={rhythmId === r.id} onChange={() => setRhythmId(r.id)} />
               {r.label}
             </label>

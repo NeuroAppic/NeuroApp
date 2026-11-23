@@ -60,7 +60,7 @@ export function ConversationCenter({
   // Quantas pessoas esperam por alguém: aparece no título da aba (aviso discreto, sem som).
   const waitingCount = items.filter((c) => c.status === "waiting_human").length;
   useEffect(() => {
-    const base = "Atendimentos · Painel Acolher";
+    const base = "Atendimentos · Painel Neuro App";
     document.title = waitingCount > 0 ? `(${waitingCount}) ${base}` : base;
     return () => {
       document.title = base;

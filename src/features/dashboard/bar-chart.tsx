@@ -98,7 +98,7 @@ export function BarChart({
       </div>
 
       <details className="mt-3">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary">
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-accent">
           Ver dados em tabela
         </summary>
         <div className="mt-2 max-h-60 overflow-y-auto">

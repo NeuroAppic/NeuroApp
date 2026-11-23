@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { initialChatState, type ChatState } from "@/features/chat/chat-state";
 import { GuidedFlow } from "@/features/chat/components/guided-flow";
 import { MessageList } from "@/features/chat/components/message-list";
-import { QuickMessages } from "@/features/chat/components/quick-messages";
+import { QuickSuggestions } from "@/features/chat/components/quick-messages";
 import { HumanSupportPanel, SafetyPanel } from "@/features/chat/components/support-panels";
 import { ColorSort } from "@/features/games/color-sort";
 import { Garden } from "@/features/games/garden";
@@ -17,16 +17,19 @@ function wrap(ui: ReactNode) {
 
 const base: ChatState = { ...initialChatState, phase: "ready", conversationId: "c" };
 
-describe("mensagens rápidas", () => {
-  it("enviam a mensagem escolhida com um toque e permitem trocar de categoria", async () => {
+describe("sugestões para começar", () => {
+  it("são no máximo três, enviam com um toque e oferecem responder com toques", async () => {
     const onSelect = vi.fn();
-    wrap(<QuickMessages onSelect={onSelect} disabled={false} />);
-    await userEvent.click(screen.getByRole("button", { name: "Estou em crise" }));
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ message: "Estou em crise." }));
+    const onAnswerWithTaps = vi.fn();
+    wrap(<QuickSuggestions onSelect={onSelect} onAnswerWithTaps={onAnswerWithTaps} disabled={false} />);
+    const list = screen.getByRole("list", { name: "Sugestões para começar" });
+    expect(within(list).getAllByRole("button").length).toBeLessThanOrEqual(3);
+    expect(screen.queryByRole("button", { name: /Preciso de ajuda/ })).toBeNull();
 
-    await userEvent.click(screen.getByRole("tab", { name: "Como me sinto" }));
-    await userEvent.click(screen.getByRole("button", { name: "Estou com medo" }));
-    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ message: "Estou com medo." }));
+    await userEvent.click(screen.getByRole("button", { name: "Só quero desabafar" }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ message: "Só quero desabafar um pouco." }));
+    await userEvent.click(screen.getByRole("button", { name: "Responder com toques" }));
+    expect(onAnswerWithTaps).toHaveBeenCalled();
   });
 });
 

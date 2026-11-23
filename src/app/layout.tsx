@@ -12,18 +12,21 @@ const atkinson = Atkinson_Hyperlegible_Next({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Acolher — um espaço tranquilo para conversar", template: "%s · Acolher" },
+  title: { default: "Neuro App — converse no seu ritmo", template: "%s · Neuro App" },
   description:
-    "Espaço de acolhimento emocional: conversa com assistente virtual, apoio humano quando disponível, sons relaxantes e atividades tranquilas.",
+    "Neuro App: apoio emocional com conversa por assistente virtual, atendimento humano quando disponível, sons relaxantes e atividades tranquilas.",
+  applicationName: "Neuro App",
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // No celular, o teclado reduz a área visível em vez de cobrir o campo de mensagem.
+  interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf7f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#18171d" },
+    { media: "(prefers-color-scheme: light)", color: "#fff8ed" },
+    { media: "(prefers-color-scheme: dark)", color: "#1d1a16" },
   ],
 };
 

@@ -1,14 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("página inicial", () => {
-  test("acolhe e leva ao chat com um clique", async ({ page }) => {
+  test("abre direto na conversa, com a marca Neuro App e sem barreiras", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Você não precisa enfrentar este momento sozinho.");
-    await expect(page.getByRole("link", { name: "Preciso de ajuda agora" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Quero ouvir sons relaxantes" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Quero me distrair um pouco" })).toBeVisible();
-    await page.getByRole("link", { name: "Quero conversar" }).click();
-    await expect(page).toHaveURL(/\/conversar$/);
+    await expect(page).toHaveTitle(/Neuro App/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Assistente virtual");
+    await expect(page.getByLabel("Sua mensagem")).toBeVisible();
+    await expect(page.getByText("Acolher", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Preciso de ajuda/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Antes de começar" })).toHaveCount(0);
+    // Os contatos de emergência continuam a um toque.
+    await page.getByRole("link", { name: "Ajuda", exact: true }).click();
+    await expect(page).toHaveURL(/\/ajuda$/);
+    await expect(page.locator('a[href="tel:188"]')).toBeVisible();
   });
 
   test("não há rolagem horizontal nem som automático", async ({ page }) => {

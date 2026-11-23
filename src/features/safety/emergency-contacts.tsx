@@ -64,7 +64,7 @@ export function EmergencyContactList({
               href={contact.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4"
+              className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent underline underline-offset-4"
             >
               Site oficial <ExternalLink className="size-4" aria-hidden />
               <span className="sr-only">(abre em nova aba)</span>

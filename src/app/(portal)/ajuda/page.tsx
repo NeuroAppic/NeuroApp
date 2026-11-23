@@ -54,7 +54,7 @@ export default async function AjudaPage() {
         O assistente virtual pode acolher você agora. Você também pode pedir para falar com uma
         pessoa da equipe — a tela mostra se há alguém disponível.
       </p>
-      <Link href="/conversar" className={`${buttonVariants({ size: "lg" })} mt-4`}>
+      <Link href="/" className={`${buttonVariants({ size: "lg" })} mt-4`}>
         <HandHeart aria-hidden /> Ir para a conversa
       </Link>
     </div>

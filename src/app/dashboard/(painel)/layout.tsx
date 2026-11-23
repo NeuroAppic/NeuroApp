@@ -7,7 +7,7 @@ import { getStaffSession, staffMfaRequired } from "@/lib/auth/dal";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: { default: "Painel", template: "%s · Painel Acolher" },
+  title: { default: "Painel", template: "%s · Painel Neuro App" },
   robots: { index: false, follow: false },
 };
 

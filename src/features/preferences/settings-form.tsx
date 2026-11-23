@@ -37,7 +37,7 @@ export function SettingsForm() {
                 key={value}
                 className={cn(
                   "flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border px-2 text-sm font-semibold has-focus-visible:outline-3 has-focus-visible:outline-focus",
-                  preferences.theme === value ? "border-primary bg-primary-soft" : "border-border",
+                  preferences.theme === value ? "border-accent bg-primary-soft" : "border-border",
                 )}
               >
                 <input
@@ -63,7 +63,7 @@ export function SettingsForm() {
                 key={scale}
                 className={cn(
                   "flex min-h-12 cursor-pointer items-center justify-center rounded-xl border px-2 text-sm font-semibold has-focus-visible:outline-3 has-focus-visible:outline-focus",
-                  preferences.textScale === scale ? "border-primary bg-primary-soft" : "border-border",
+                  preferences.textScale === scale ? "border-accent bg-primary-soft" : "border-border",
                 )}
               >
                 <input

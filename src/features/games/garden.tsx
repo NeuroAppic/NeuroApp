@@ -82,7 +82,7 @@ export function Garden() {
               role="radio"
               aria-checked={flower === f.id}
               onClick={() => setFlower(f.id)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold aria-checked:border-primary aria-checked:bg-primary-soft"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold aria-checked:border-accent aria-checked:bg-primary-soft"
             >
               <span className="size-4 rounded-full" style={{ background: f.color }} aria-hidden />
               {f.label}
@@ -134,7 +134,7 @@ function ToolButton({ active, onClick, icon, children }: { active: boolean; onCl
       role="radio"
       aria-checked={active}
       onClick={onClick}
-      className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-border bg-surface px-4 font-semibold aria-checked:border-primary aria-checked:bg-primary-soft [&_svg]:size-5"
+      className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-border bg-surface px-4 font-semibold aria-checked:border-accent aria-checked:bg-primary-soft [&_svg]:size-5"
     >
       {icon}
       {children}

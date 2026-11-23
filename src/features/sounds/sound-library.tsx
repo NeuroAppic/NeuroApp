@@ -156,7 +156,7 @@ export function SoundLibrary({ tracks, demo }: { tracks: PlayableTrack[]; demo: 
                   aria-pressed={playing}
                   className={cn(
                     "flex w-full items-center gap-4 rounded-2xl border bg-surface p-4 text-left shadow-soft disabled:opacity-60",
-                    isCurrent ? "border-primary" : "border-border hover:bg-surface-muted",
+                    isCurrent ? "border-accent" : "border-border hover:bg-surface-muted",
                   )}
                 >
                   <span
@@ -292,7 +292,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold aria-pressed:border-primary aria-pressed:bg-primary-soft"
+      className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold aria-pressed:border-accent aria-pressed:bg-primary-soft"
     >
       {children}
     </button>

@@ -52,7 +52,7 @@ export function AuthCallback() {
         <p className="mt-2 text-foreground-muted">
           Ele pode ter expirado ou já ter sido usado. Peça um novo convite ou use “Esqueci minha senha”.
         </p>
-        <Link href="/dashboard/entrar" className="mt-4 inline-flex min-h-12 items-center font-semibold text-primary underline">
+        <Link href="/dashboard/entrar" className="mt-4 inline-flex min-h-12 items-center font-semibold text-accent underline">
           Ir para a entrada da equipe
         </Link>
       </div>

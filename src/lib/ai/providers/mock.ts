@@ -57,7 +57,7 @@ function pickReply(text: string, system: string): string {
     return "Obrigado por me contar. Isso parece pesado. Você gostaria de uma sugestão simples ou prefere que eu apenas escute?";
   }
   if (t.includes("pessoa")) {
-    return "Entendi. Você pode usar o botão \"Quero falar com uma pessoa\". Enquanto isso, eu continuo aqui.";
+    return "Entendi. Você pode usar o botão \"Falar com uma pessoa\", no topo da conversa. Enquanto isso, eu continuo aqui.";
   }
   return "Estou aqui com você. Pode falar no seu ritmo. O que você está sentindo agora?";
 }

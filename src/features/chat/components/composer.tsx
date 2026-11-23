@@ -1,27 +1,36 @@
 "use client";
 
-import { SendHorizontal } from "lucide-react";
-import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { ArrowUp } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { cn } from "@/lib/utils";
 import { MAX_MESSAGE_LENGTH } from "@/lib/validation/schemas";
 
 export function Composer({
   onSend,
   disabled,
   placeholder,
+  autoFocus,
 }: {
   onSend: (text: string) => void;
   disabled: boolean;
   placeholder: string;
+  autoFocus?: boolean;
 }) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   const trimmed = text.trim();
   const remaining = MAX_MESSAGE_LENGTH - text.length;
+  const canSend = !disabled && trimmed.length > 0 && remaining >= 0;
+
+  // Com mouse/teclado, o cursor já fica no campo. No celular não: abrir o
+  // teclado sozinho cobriria metade da tela antes de a pessoa decidir escrever.
+  useEffect(() => {
+    if (autoFocus && window.matchMedia("(pointer: fine)").matches) ref.current?.focus({ preventScroll: true });
+  }, [autoFocus]);
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
-    if (!trimmed || disabled || remaining < 0) return;
+    if (!canSend) return;
     onSend(trimmed);
     setText("");
     ref.current?.focus();
@@ -36,8 +45,14 @@ export function Composer({
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto flex max-w-2xl items-end gap-2">
-      <div className="min-w-0 flex-1">
+    <form onSubmit={submit} className="mx-auto w-full max-w-2xl">
+      <div
+        className={cn(
+          "flex items-end gap-2 rounded-2xl border border-border bg-surface p-1.5 pl-4 shadow-soft transition-colors",
+          "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
+          disabled && "opacity-70",
+        )}
+      >
         <label htmlFor="mensagem" className="sr-only">
           Sua mensagem
         </label>
@@ -51,17 +66,22 @@ export function Composer({
           disabled={disabled}
           placeholder={placeholder}
           aria-describedby={remaining < 200 ? "contador" : undefined}
-          className="field-sizing-content max-h-40 min-h-13 w-full resize-none rounded-2xl border border-border bg-surface px-4 py-3 leading-relaxed placeholder:text-foreground-muted/80 focus-visible:border-focus disabled:opacity-60"
+          className="field-sizing-content max-h-40 min-h-11 flex-1 resize-none self-center bg-transparent py-2.5 leading-relaxed placeholder:text-foreground-muted focus-visible:outline-none"
         />
-        {remaining < 200 && (
-          <p id="contador" className={remaining < 0 ? "text-sm text-danger" : "text-sm text-foreground-muted"}>
-            {remaining < 0 ? `${-remaining} caracteres acima do limite` : `${remaining} caracteres restantes`}
-          </p>
-        )}
+        <button
+          type="submit"
+          disabled={!canSend}
+          aria-label="Enviar mensagem"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary-hover disabled:bg-surface-muted disabled:text-foreground-muted"
+        >
+          <ArrowUp className="size-5" strokeWidth={2.25} aria-hidden />
+        </button>
       </div>
-      <Button type="submit" size="icon" className="size-13 rounded-2xl" disabled={disabled || !trimmed || remaining < 0} aria-label="Enviar mensagem">
-        <SendHorizontal aria-hidden />
-      </Button>
+      {remaining < 200 && (
+        <p id="contador" className={cn("mt-1 px-2 text-sm", remaining < 0 ? "text-danger" : "text-foreground-muted")}>
+          {remaining < 0 ? `${-remaining} caracteres acima do limite` : `${remaining} caracteres restantes`}
+        </p>
+      )}
     </form>
   );
 }

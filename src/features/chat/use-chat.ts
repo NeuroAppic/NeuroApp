@@ -19,7 +19,6 @@ const MESSAGE_COLUMNS =
 
 export interface UseChat {
   state: ChatState;
-  begin: () => Promise<void>;
   send: (content: string, source?: MessageInputSource) => Promise<void>;
   retryMessage: (clientId: string) => Promise<void>;
   retryAI: () => Promise<void>;
@@ -32,6 +31,8 @@ export interface UseChat {
 
 /**
  * Estado e efeitos do chat da pessoa:
+ *  - sem etapa prévia: a conversa (sessão anônima + aceite do aviso exibido
+ *    junto ao campo de mensagem) é criada no primeiro envio;
  *  - envio com streaming (NDJSON) e idempotência por clientMessageId;
  *  - Realtime em canal privado `conversation:<id>` (mensagens de profissionais,
  *    mudanças de estado); ao reconectar, recarrega o histórico do banco para
@@ -83,7 +84,7 @@ export function useChat(): UseChat {
         const supabase = getBrowserSupabase();
         const { data } = await supabase.auth.getUser();
         if (!data.user) {
-          if (!cancelled) dispatch({ type: "needs_consent" });
+          if (!cancelled) dispatch({ type: "fresh" });
           return;
         }
         const { data: active } = await supabase
@@ -96,7 +97,7 @@ export function useChat(): UseChat {
           .maybeSingle();
         if (cancelled) return;
         if (active) await loadConversation(active.id as string);
-        else dispatch({ type: "needs_consent" });
+        else dispatch({ type: "fresh" });
       } catch {
         if (!cancelled) dispatch({ type: "unavailable" });
       }
@@ -204,7 +205,11 @@ export function useChat(): UseChat {
         // Falha de rede: a mensagem pode ou não ter sido gravada. Reenviar é
         // seguro (mesmo clientMessageId → sem duplicação).
         if (clientId) {
-          dispatch({ type: "send_failed", clientId, error: "Sem conexão. Sua mensagem não foi perdida: toque para reenviar." });
+          dispatch({
+            type: "send_failed",
+            clientId,
+            error: "Sem conexão. Sua mensagem não foi perdida: toque para reenviar.",
+          });
         } else {
           dispatch({ type: "notice", message: "Sem conexão no momento." });
         }
@@ -215,10 +220,48 @@ export function useChat(): UseChat {
     [handleEvent],
   );
 
-  const sendWithId = useCallback(
+  /**
+   * Cria a sessão anônima (se preciso) e a conversa; devolve o id ou null.
+   * Chamadas simultâneas (ex.: pedir uma pessoa e enviar a frase ao mesmo
+   * tempo) compartilham a mesma criação.
+   */
+  const startingRef = useRef<Promise<string | null> | null>(null);
+  const startConversation = useCallback((): Promise<string | null> => {
+    startingRef.current ??= createConversation().finally(() => {
+      startingRef.current = null;
+    });
+    return startingRef.current;
+
+    async function createConversation(): Promise<string | null> {
+      try {
+        await ensureVisitorSession();
+        void syncPreferencesToAccount();
+        const response = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ acceptedPolicyVersion: CHAT_POLICY_VERSION }),
+        });
+        if (!response.ok) return null;
+        const { conversationId: id } = (await response.json()) as { conversationId: string };
+        await loadConversation(id);
+        return id;
+      } catch {
+        return null;
+      }
+    }
+  }, [loadConversation]);
+
+  const deliver = useCallback(
     async (clientId: string, content: string, source: MessageInputSource) => {
-      const id = stateRef.current.conversationId;
-      if (!id) return;
+      let id = stateRef.current.conversationId;
+      if (!id) {
+        dispatch({ type: "starting", first: { clientId, content, source } });
+        id = await startConversation();
+        if (!id) {
+          dispatch({ type: "start_failed", clientId });
+          return;
+        }
+      }
       dispatch({ type: "sending", clientId, content, source });
       await runStream(
         `/api/conversations/${id}/messages`,
@@ -226,21 +269,21 @@ export function useChat(): UseChat {
         clientId,
       );
     },
-    [runStream],
+    [runStream, startConversation],
   );
 
   const send = useCallback(
     (content: string, source: MessageInputSource = "typed") =>
-      sendWithId(crypto.randomUUID(), content, source),
-    [sendWithId],
+      deliver(crypto.randomUUID(), content, source),
+    [deliver],
   );
 
   const retryMessage = useCallback(
     async (clientId: string) => {
       const pending = stateRef.current.pending.find((p) => p.clientId === clientId);
-      if (pending) await sendWithId(clientId, pending.content, pending.source);
+      if (pending) await deliver(clientId, pending.content, pending.source);
     },
-    [sendWithId],
+    [deliver],
   );
 
   const retryAI = useCallback(async () => {
@@ -250,26 +293,8 @@ export function useChat(): UseChat {
     await runStream(`/api/conversations/${id}/respond`, {}, null);
   }, [runStream]);
 
-  const begin = useCallback(async () => {
-    dispatch({ type: "starting" });
-    try {
-      await ensureVisitorSession();
-      void syncPreferencesToAccount();
-      const response = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptedPolicyVersion: CHAT_POLICY_VERSION }),
-      });
-      if (!response.ok) throw new Error("start_failed");
-      const { conversationId: id } = (await response.json()) as { conversationId: string };
-      await loadConversation(id);
-    } catch {
-      dispatch({ type: "start_failed" });
-    }
-  }, [loadConversation]);
-
-  const rpc = useCallback(async (fn: string) => {
-    const id = stateRef.current.conversationId;
+  const rpc = useCallback(async (fn: string, conversationId?: string) => {
+    const id = conversationId ?? stateRef.current.conversationId;
     if (!id) return null;
     const { data, error } = await getBrowserSupabase().rpc(fn, { p_conversation_id: id });
     if (error) {
@@ -280,7 +305,17 @@ export function useChat(): UseChat {
   }, []);
 
   const requestHuman = useCallback(async () => {
-    const result = await rpc("request_human");
+    // Pedir uma pessoa antes da primeira mensagem também começa a conversa.
+    let id = stateRef.current.conversationId;
+    if (!id) {
+      dispatch({ type: "starting" });
+      id = await startConversation();
+      if (!id) {
+        dispatch({ type: "start_failed" });
+        return;
+      }
+    }
+    const result = await rpc("request_human", id);
     if (!result) return;
     dispatch({
       type: "human_requested",
@@ -288,7 +323,7 @@ export function useChat(): UseChat {
       stateVersion: result.state_version as number,
       availableProfessionals: Number(result.available_professionals ?? 0),
     });
-  }, [rpc]);
+  }, [rpc, startConversation]);
 
   const cancelHumanRequest = useCallback(async () => {
     const result = await rpc("cancel_human_request");
@@ -315,7 +350,7 @@ export function useChat(): UseChat {
     }
   }, [rpc]);
 
-  const startNew = useCallback(() => dispatch({ type: "needs_consent" }), []);
+  const startNew = useCallback(() => dispatch({ type: "fresh" }), []);
   const dismissSafety = useCallback(() => dispatch({ type: "dismiss_safety" }), []);
 
   // Atualiza a disponibilidade de profissionais enquanto a pessoa aguarda (a cada 60 s).
@@ -334,7 +369,6 @@ export function useChat(): UseChat {
 
   return {
     state,
-    begin,
     send,
     retryMessage,
     retryAI,

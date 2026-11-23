@@ -1,6 +1,6 @@
-# Plano de implementação — Acolher
+# Plano de implementação — Neuro App
 
-Atualizado em 18/11/2026.
+Atualizado em 23/11/2026.
 
 ## Estado das fases
 
@@ -14,6 +14,12 @@ Atualizado em 18/11/2026.
 | 6. Finalização (privacidade, métricas, testes, docs) | Parcial (ver pendências) |
 
 ## Verificações executadas
+
+- **Redesign Neuro App (23/11/2026)**: `npm run check` sem erros (118 testes de unidade, componentes e
+  banco + build); `npm run test:e2e` com `E2E_SUPABASE=1`: 48/48 (desktop e celular), incluindo conversa
+  iniciada sem etapa prévia, pedido de pessoa antes da primeira mensagem, painel de segurança em risco e
+  redirecionamento de `/conversar`. Conferido no navegador (claro, escuro e 375 px, sem rolagem
+  horizontal) com resposta real do Gemini. Visitantes de teste removidos do Supabase.
 
 - `npm run typecheck`, `npx eslint src`, `npm run build`: sem erros.
 - `npm test`: 57 testes (classificador de risco, prompt, contexto, provedor simulado, estado do chat,
@@ -37,6 +43,14 @@ Atualizado em 18/11/2026.
   finalizar; desktop e celular).
 
 ## Decisões arquiteturais
+
+- **Aceite no primeiro envio** (23/11/2026): a tela "Antes de começar" foi removida. O aviso de IA,
+  armazenamento, privacidade e emergência aparece junto ao campo de mensagem até a conversa começar; o
+  envio registra o aceite da versão vigente (`CHAT_POLICY_VERSION`) como antes. **Revisar com o jurídico**
+  se esse aceite atende à LGPD para dados sensíveis de saúde.
+- **Mensagens rápidas**: a tabela `quick_messages` continua no banco, mas o chat usa só as três
+  sugestões fixas de `src/features/chat/content.ts`.
+- **Prompt**: nome do produto atualizado para Neuro App (`acolhimento-2026-11-23.1`).
 
 - **Cache Components desativado**: rotas dependem de sessão e dados sensíveis; renderização dinâmica previsível.
 - **Máquina de estados no banco** (`ai_active → waiting_human → human_active → closed → archived`;

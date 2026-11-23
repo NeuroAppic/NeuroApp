@@ -19,7 +19,7 @@ export function Slider({
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         aria-label={thumbLabel}
-        className="block size-7 rounded-full border-2 border-primary bg-surface shadow-sm"
+        className="block size-7 rounded-full border-2 border-accent bg-surface shadow-sm"
       />
     </SliderPrimitive.Root>
   );

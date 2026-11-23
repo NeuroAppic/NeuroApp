@@ -30,6 +30,40 @@ function ready(): ChatState {
   });
 }
 
+describe("primeira mensagem sem etapa prévia", () => {
+  const fresh = () => chatReducer(initialChatState, { type: "fresh" });
+  const first = { clientId: "c1", content: "Oi", source: "typed" as const };
+
+  it("a mensagem aparece na hora e continua lá quando a conversa é criada", () => {
+    let s = chatReducer(fresh(), { type: "starting", first });
+    expect(s.phase).toBe("starting");
+    expect(s.pending).toEqual([{ ...first, state: "sending" }]);
+    s = chatReducer(s, {
+      type: "loaded",
+      conversationId: CONV,
+      status: "ai_active",
+      stateVersion: 1,
+      assignedLabel: null,
+      riskLevel: "none",
+      messages: [],
+    });
+    expect(s.phase).toBe("ready");
+    expect(s.pending).toHaveLength(1);
+  });
+
+  it("se não der para começar, a mensagem fica marcada para reenviar", () => {
+    let s = chatReducer(fresh(), { type: "starting", first });
+    s = chatReducer(s, { type: "start_failed", clientId: "c1" });
+    expect(s.phase).toBe("start_failed");
+    expect(s.pending[0]).toMatchObject({ state: "failed", error: expect.stringMatching(/Não foi possível começar/) });
+  });
+
+  it("um início atrasado não trava uma conversa que já existe", () => {
+    const s = chatReducer(ready(), { type: "starting" });
+    expect(s.phase).toBe("ready");
+  });
+});
+
 describe("estado do chat", () => {
   it("mensagem otimista vira mensagem confirmada sem duplicar", () => {
     let s = chatReducer(ready(), { type: "sending", clientId: "c1", content: "Oi", source: "typed" });

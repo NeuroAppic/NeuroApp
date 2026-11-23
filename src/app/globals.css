@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — Acolher
- * Paleta: creme, verde-sálvia, lavanda e azul acinzentado, pouco saturados.
- * Todos os pares texto/fundo usados atendem WCAG 2.2 AA (≥ 4.5:1 para texto).
+ * Design tokens — Neuro App
+ * Cor da marca: laranja-claro #FFBD59, sempre com texto escuro (#343434, 7.5:1).
+ * Fundos creme e bege quentes; laranja usado com moderação (ações e destaques).
+ * Texto e links sobre fundos claros usam --accent (âmbar escuro, ≥ 5:1), nunca o
+ * laranja puro, que não tem contraste suficiente sobre fundo claro.
+ * Todos os pares texto/fundo atendem WCAG 2.2 AA (≥ 4.5:1 para texto).
  * Preferências sensoriais são aplicadas como atributos em <html>:
  *   data-theme="light|dark", data-low-stimulus, data-reduce-motion, data-reduce-decor
  *   e a variável --text-scale.
@@ -14,56 +17,61 @@
 :root {
   --text-scale: 1;
 
-  --background: #faf7f2;
+  --background: #fff8ed;
   --surface: #ffffff;
-  --surface-muted: #f3eee6;
-  --border: #e2dace;
-  --foreground: #2b2a33;
-  --foreground-muted: #5b5866;
+  --surface-muted: #f2eadf;
+  --border: #e6dbcb;
+  --foreground: #343434;
+  --foreground-muted: #6b6156;
 
-  --primary: #46685a;
-  --primary-hover: #3b5a4d;
-  --primary-foreground: #ffffff;
-  --primary-soft: #dfe9e2;
+  /* Marca: preenchimentos (botões, bolha da pessoa). */
+  --primary: #ffbd59;
+  --primary-hover: #f7ac3d;
+  --primary-foreground: #343434;
+  --primary-soft: #ffebcb;
+  /* Texto, links e bordas de seleção em tom de marca com contraste. */
+  --accent: #8a5410;
 
-  --lavender: #6f629c;
-  --lavender-soft: #ece8f5;
-  --sky: #4f6880;
-  --sky-soft: #e4ebf2;
+  /* Pessoa da equipe (verde-sálvia discreto) e avisos neutros. */
+  --lavender: #4f5e48;
+  --lavender-soft: #e8ede1;
+  --sky: #5e5a52;
+  --sky-soft: #f6efe5;
 
-  --danger: #8a3b2e;
-  --danger-soft: #f7e6e1;
-  --focus: #5b4fa0;
+  --danger: #9e3b26;
+  --danger-soft: #fbe8e1;
+  --focus: #8a5410;
 
-  /* Cor de dados dos gráficos (validada: banda de luminosidade, croma e contraste). */
-  --chart-1: #2f8f68;
+  /* Cor de dados dos gráficos (≥ 3:1 sobre o fundo). */
+  --chart-1: #b87a1e;
 
-  --radius: 1rem;
+  --radius: 0.75rem;
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --background: #18171d;
-  --surface: #222129;
-  --surface-muted: #2b2a33;
-  --border: #3b3945;
-  --foreground: #ece9f2;
-  --foreground-muted: #b6b1c2;
+  --background: #1d1a16;
+  --surface: #27231e;
+  --surface-muted: #312c25;
+  --border: #433c33;
+  --foreground: #f3ece2;
+  --foreground-muted: #b9ae9f;
 
-  --primary: #9cc4b0;
-  --primary-hover: #b0d2c1;
-  --primary-foreground: #142019;
-  --primary-soft: #26352e;
+  --primary: #ffbd59;
+  --primary-hover: #ffc977;
+  --primary-foreground: #1d1a16;
+  --primary-soft: #3a2f1f;
+  --accent: #ffc870;
 
-  --lavender: #c3b8ea;
-  --lavender-soft: #2e2a40;
-  --sky: #afc4d8;
-  --sky-soft: #243039;
+  --lavender: #b8c7ac;
+  --lavender-soft: #2a3127;
+  --sky: #c9bba8;
+  --sky-soft: #2e2924;
 
-  --danger: #f0b3a6;
-  --danger-soft: #3d2622;
-  --focus: #c3b8ea;
-  --chart-1: #46a07a;
+  --danger: #f2b2a3;
+  --danger-soft: #3d2520;
+  --focus: #ffc870;
+  --chart-1: #e0a145;
   color-scheme: dark;
 }
 
@@ -87,6 +95,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
   --color-lavender: var(--lavender);
   --color-lavender-soft: var(--lavender-soft);
   --color-sky: var(--sky);
@@ -121,7 +130,7 @@ body {
 }
 
 ::selection {
-  background: var(--lavender-soft);
+  background: var(--primary-soft);
   color: var(--foreground);
 }
 
@@ -158,8 +167,8 @@ body {
 
 @utility shadow-soft {
   box-shadow:
-    0 1px 2px rgb(43 42 51 / 0.04),
-    0 8px 24px -12px rgb(43 42 51 / 0.12);
+    0 1px 2px rgb(52 52 52 / 0.04),
+    0 6px 20px -12px rgb(52 52 52 / 0.1);
 }
 
 @keyframes gentle-fade-in {
@@ -173,7 +182,7 @@ body {
   }
 }
 @utility animate-gentle-in {
-  animation: gentle-fade-in 320ms ease-out both;
+  animation: gentle-fade-in 240ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 @keyframes soft-pulse {

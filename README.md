@@ -1,8 +1,25 @@
-# Acolher — plataforma web de acolhimento emocional
+# Neuro App — apoio emocional
 
 Espaço digital calmo e acessível para pessoas em sofrimento emocional, autistas e neurodivergentes:
 chat com assistente virtual (IA), transferência para profissionais humanos em tempo real, sons
 relaxantes e jogos tranquilos. Português do Brasil, mobile-first, WCAG 2.2 AA como meta.
+
+## Experiência e identidade visual
+
+- **Entrar → escrever → conversar.** A tela inicial (`/`) já é a conversa, com o campo de mensagem
+  pronto. Não há etapa de boas-vindas nem confirmação: a conversa (sessão anônima + registro do aceite)
+  é criada no primeiro envio. `/conversar` redireciona para `/`.
+- **Transparência sem barreira.** Até a primeira mensagem, um aviso curto junto ao campo diz que quem
+  responde é uma IA, que as mensagens ficam salvas e podem ser lidas pela equipe, e traz links para a
+  política de privacidade, os termos e os telefones 192/188. O cabeçalho da conversa sempre mostra se
+  quem responde é a IA ou uma pessoa; o link **Ajuda** (CVV, SAMU) fica no topo de todas as telas.
+- **Poucas sugestões.** No máximo três atalhos antes da primeira mensagem ("Estou ansioso(a)", "Só
+  quero desabafar", "Responder com toques"); somem depois que a conversa começa. As perguntas de um
+  toque (para quem não consegue escrever) também ficam em **Mais opções**.
+- **Cores** (`src/app/globals.css`): laranja-claro `#FFBD59` (marca, botões, bolha da pessoa, sempre
+  com texto `#343434`, contraste 7,5:1), fundo `#FFF8ED`, superfície `#F2EADF`, branco `#FFFFFF`.
+  Texto e links de destaque usam `--accent` (`#8A5410`), porque o laranja puro não tem contraste sobre
+  fundo claro. Há tema escuro quente e o modo de baixo estímulo continua disponível.
 
 > **Não é serviço de emergência.** Protocolos clínicos, textos de segurança e documentos legais são
 > rascunhos e precisam de revisão profissional e jurídica antes de qualquer uso com pessoas reais.
@@ -11,10 +28,10 @@ relaxantes e jogos tranquilos. Português do Brasil, mobile-first, WCAG 2.2 AA c
 
 ```
 Next.js 16 (App Router, TypeScript strict, Tailwind 4, Radix)
- ├─ Portal (/, /conversar, /ajuda, /sons, /jogos, /configuracoes, /conta)
+ ├─ Portal (/ = conversa, /ajuda, /sons, /jogos, /configuracoes, /conta)
  ├─ Painel (/dashboard: visão geral, atendimentos, equipe, áudios, configurações, auditoria)
  ├─ Rotas de servidor (/api/conversations/*, /api/me/*, /api/dashboard/*)
- │    └─ IA independente de provedor (Anthropic | OpenAI | simulado), streaming NDJSON
+ │    └─ IA independente de provedor (Gemini | OpenAI | Anthropic | simulado), streaming NDJSON
  └─ Supabase
       ├─ Postgres + RLS em todas as tabelas + funções SECURITY DEFINER (máquina de estados)
       ├─ Auth (visitante anônimo, contas, equipe com MFA TOTP)
